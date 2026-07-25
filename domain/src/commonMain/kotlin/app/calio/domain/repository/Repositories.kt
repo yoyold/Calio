@@ -56,7 +56,15 @@ interface EventRepository {
     suspend fun delete(id: EventId)
 
     suspend fun overridesFor(id: EventId): List<RecurrenceOverride>
-    fun observeOverrides(ids: Set<EventId>): Flow<Map<EventId, List<RecurrenceOverride>>>
+
+    /**
+     * Every exception, grouped by the series it belongs to.
+     *
+     * Exceptions are rare compared to events, so they are delivered as a whole rather than per
+     * window. That keeps the subscription alive while the user pages through the calendar.
+     */
+    fun observeAllOverrides(): Flow<Map<EventId, List<RecurrenceOverride>>>
+
     suspend fun upsertOverride(override: RecurrenceOverride)
     suspend fun removeOverride(id: EventId, originalStart: LocalDateTime)
 }

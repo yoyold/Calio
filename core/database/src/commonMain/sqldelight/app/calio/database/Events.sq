@@ -99,6 +99,13 @@ SELECT *
 FROM recurrence_override
 WHERE event_id = ?;
 
+-- Exceptions are rare compared to events, so the expander is served the whole set and groups it
+-- itself. That keeps the query independent of the visible window, which in turn means changing the
+-- window does not invalidate the subscription.
+selectAllOverrides:
+SELECT *
+FROM recurrence_override;
+
 deleteOverride:
 DELETE FROM recurrence_override
 WHERE event_id = :eventId AND original_start = :originalStart;

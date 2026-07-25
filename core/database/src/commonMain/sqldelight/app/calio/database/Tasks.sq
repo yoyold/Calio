@@ -43,11 +43,12 @@ FROM task
 WHERE deleted_at IS NULL AND parent_task_id = ?
 ORDER BY sort_order;
 
+-- The comparisons already exclude rows without a due date, so no explicit null check is needed.
+-- Adding one would only narrow the generated row type and force a second mapping for one query.
 selectDueInRange:
 SELECT *
 FROM task
 WHERE deleted_at IS NULL
-  AND due_utc IS NOT NULL
   AND due_utc >= :rangeStartUtc
   AND due_utc < :rangeEndUtc
 ORDER BY due_utc;
