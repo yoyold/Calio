@@ -20,8 +20,13 @@ dependencyResolutionManagement {
     }
 }
 
+// Lets modules refer to each other as projects.core.model instead of project(":core:model"),
+// so a typo in a module path is a compile error rather than a runtime failure.
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 rootProject.name = "calio"
 
 include(":core:database")
 include(":core:datetime")
 include(":core:model")
+include(":domain")

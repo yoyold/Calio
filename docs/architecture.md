@@ -116,7 +116,8 @@ apps/desktop ─┘      │            │           ▲
 ### Enforced dependency rules
 
 - `core/model` depends on nothing.
-- `domain` depends on `core/model` and `core/common` only.
+- `domain` depends on `core/model`, `core/datetime` and `core/common` only — never on a framework,
+  a database or a coroutine dispatcher of its own choosing.
 - `feature/*` may depend on `domain`, `core/designsystem`, `core/ui` — **never** on `data`.
 - `feature/*` modules never depend on each other. Shared UI moves down into `core/ui`.
 - Only `shared` may see both `data` and `feature/*`; it is the single place where implementations
