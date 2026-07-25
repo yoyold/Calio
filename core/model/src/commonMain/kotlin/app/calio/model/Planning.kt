@@ -50,10 +50,19 @@ data class BufferPolicy(
     val isEnabled: Boolean = false,
     val defaultMinutes: Int = 10,
     val minimumGapMinutes: Int = 5,
+    /**
+     * The widest gap still worth protecting. A buffer exists to soften the transition between two
+     * appointments; when the next one is hours away the transition takes care of itself, and
+     * blocking time anyway would only clutter the day.
+     */
+    val maximumGapMinutes: Int = 120,
     val appliesToAllDayEvents: Boolean = false,
 ) {
     init {
         require(defaultMinutes > 0) { "a buffer must be longer than zero minutes" }
         require(minimumGapMinutes >= 0) { "minimum gap must not be negative" }
+        require(maximumGapMinutes >= minimumGapMinutes) {
+            "the maximum gap must not be smaller than the minimum gap"
+        }
     }
 }
