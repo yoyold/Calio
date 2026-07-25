@@ -99,7 +99,7 @@ apps/desktop ─┘      │            │           ▲
 | `shared`              | Composition root: builds the object graph and hosts the root composable |
 | `core/model`          | Domain entities, identifiers, enums — zero dependencies                |
 | `core/common`         | `Result` wrappers, dispatcher provider, logging, id generation          |
-| `core/datetime`       | Time zone handling, week/month arithmetic, formatting contracts         |
+| `core/datetime`       | Time zone handling, week and month arithmetic, ISO week numbering       |
 | `core/database`       | SQLDelight schema, drivers, transaction helper                          |
 | `core/preferences`    | Typed key–value settings storage                                       |
 | `core/crypto`         | Key derivation, key storage, payload sealing                           |

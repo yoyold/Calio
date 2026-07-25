@@ -22,4 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "calio"
 
+include(":core:datetime")
 include(":core:model")
