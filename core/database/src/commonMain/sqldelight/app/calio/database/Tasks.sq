@@ -1,0 +1,71 @@
+insert:
+INSERT INTO task(
+    id, parent_task_id, category_id, title, description, priority,
+    due_local, due_time_zone_id, due_utc,
+    progress_percent, is_completed, completed_at, sort_order,
+    created_at, updated_at, revision, deleted_at, origin_device
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE task
+SET parent_task_id = :parentTaskId,
+    category_id = :categoryId,
+    title = :title,
+    description = :description,
+    priority = :priority,
+    due_local = :dueLocal,
+    due_time_zone_id = :dueTimeZoneId,
+    due_utc = :dueUtc,
+    progress_percent = :progressPercent,
+    is_completed = :isCompleted,
+    completed_at = :completedAt,
+    sort_order = :sortOrder,
+    updated_at = :updatedAt,
+    revision = :revision,
+    origin_device = :originDevice
+WHERE id = :id;
+
+selectById:
+SELECT *
+FROM task
+WHERE id = ?;
+
+selectTopLevel:
+SELECT *
+FROM task
+WHERE deleted_at IS NULL AND parent_task_id IS NULL
+ORDER BY is_completed, sort_order, due_utc;
+
+selectSubtasks:
+SELECT *
+FROM task
+WHERE deleted_at IS NULL AND parent_task_id = ?
+ORDER BY sort_order;
+
+selectDueInRange:
+SELECT *
+FROM task
+WHERE deleted_at IS NULL
+  AND due_utc IS NOT NULL
+  AND due_utc >= :rangeStartUtc
+  AND due_utc < :rangeEndUtc
+ORDER BY due_utc;
+
+setCompleted:
+UPDATE task
+SET is_completed = :isCompleted,
+    completed_at = :completedAt,
+    progress_percent = :progressPercent,
+    updated_at = :updatedAt,
+    revision = :revision
+WHERE id = :id;
+
+softDelete:
+UPDATE task
+SET deleted_at = :deletedAt, updated_at = :deletedAt, revision = :revision
+WHERE id = :id;
+
+deleteHard:
+DELETE FROM task
+WHERE id = ?;

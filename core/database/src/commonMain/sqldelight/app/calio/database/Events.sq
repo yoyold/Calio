@@ -1,0 +1,104 @@
+insert:
+INSERT INTO event(
+    id, calendar_id, category_id, title, description, notes,
+    location_label, location_lat, location_lon,
+    is_all_day, start_local, end_local, time_zone_id, start_utc, end_utc,
+    recurrence_rule, recurrence_until_utc,
+    color_override, kind, busy_status, status,
+    created_at, updated_at, revision, deleted_at, origin_device
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE event
+SET calendar_id = :calendarId,
+    category_id = :categoryId,
+    title = :title,
+    description = :description,
+    notes = :notes,
+    location_label = :locationLabel,
+    location_lat = :locationLat,
+    location_lon = :locationLon,
+    is_all_day = :isAllDay,
+    start_local = :startLocal,
+    end_local = :endLocal,
+    time_zone_id = :timeZoneId,
+    start_utc = :startUtc,
+    end_utc = :endUtc,
+    recurrence_rule = :recurrenceRule,
+    recurrence_until_utc = :recurrenceUntilUtc,
+    color_override = :colorOverride,
+    kind = :kind,
+    busy_status = :busyStatus,
+    status = :status,
+    updated_at = :updatedAt,
+    revision = :revision,
+    origin_device = :originDevice
+WHERE id = :id;
+
+selectById:
+SELECT *
+FROM event
+WHERE id = ?;
+
+-- Everything that can possibly appear in a visible window.
+--
+-- Non-recurring events are matched by a plain half-open overlap. Recurring ones are matched by their
+-- series bound instead, because their individual occurrences are never stored: a series qualifies
+-- when it started before the window ends and has not already finished before the window begins.
+-- The rows returned for a series still have to be expanded by the caller.
+selectInRange:
+SELECT *
+FROM event
+WHERE deleted_at IS NULL
+  AND (
+        (recurrence_rule IS NULL AND start_utc < :rangeEndUtc AND end_utc > :rangeStartUtc)
+     OR (recurrence_rule IS NOT NULL
+         AND start_utc < :rangeEndUtc
+         AND (recurrence_until_utc IS NULL OR recurrence_until_utc > :rangeStartUtc))
+  )
+ORDER BY start_utc;
+
+-- Same window, restricted to the calendars the user currently has switched on.
+selectInRangeForVisibleCalendars:
+SELECT event.*
+FROM event
+JOIN calendar ON calendar.id = event.calendar_id
+WHERE event.deleted_at IS NULL
+  AND calendar.deleted_at IS NULL
+  AND calendar.is_visible = 1
+  AND (
+        (event.recurrence_rule IS NULL AND event.start_utc < :rangeEndUtc AND event.end_utc > :rangeStartUtc)
+     OR (event.recurrence_rule IS NOT NULL
+         AND event.start_utc < :rangeEndUtc
+         AND (event.recurrence_until_utc IS NULL OR event.recurrence_until_utc > :rangeStartUtc))
+  )
+ORDER BY event.start_utc;
+
+selectByCalendar:
+SELECT *
+FROM event
+WHERE calendar_id = ? AND deleted_at IS NULL
+ORDER BY start_utc;
+
+softDelete:
+UPDATE event
+SET deleted_at = :deletedAt, updated_at = :deletedAt, revision = :revision
+WHERE id = :id;
+
+deleteHard:
+DELETE FROM event
+WHERE id = ?;
+
+insertOverride:
+INSERT OR REPLACE INTO recurrence_override(event_id, original_start, type, patch_json)
+VALUES (?, ?, ?, ?);
+
+selectOverrides:
+SELECT *
+FROM recurrence_override
+WHERE event_id = ?;
+
+deleteOverride:
+DELETE FROM recurrence_override
+WHERE event_id = :eventId AND original_start = :originalStart;

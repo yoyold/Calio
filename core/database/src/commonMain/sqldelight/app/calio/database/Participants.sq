@@ -1,0 +1,40 @@
+insertAttendee:
+INSERT INTO attendee(id, event_id, name, email, role, response, sort_order)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectAttendees:
+SELECT *
+FROM attendee
+WHERE event_id = ?
+ORDER BY sort_order;
+
+deleteAttendeesForEvent:
+DELETE FROM attendee
+WHERE event_id = ?;
+
+insertAttachment:
+INSERT INTO attachment(id, event_id, file_name, mime_type, size_bytes, checksum, local_path, sort_order)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+selectAttachments:
+SELECT *
+FROM attachment
+WHERE event_id = ?
+ORDER BY sort_order;
+
+setAttachmentLocalPath:
+UPDATE attachment
+SET local_path = :localPath
+WHERE id = :id;
+
+deleteAttachmentsForEvent:
+DELETE FROM attachment
+WHERE event_id = ?;
+
+countAttendees:
+SELECT count(*)
+FROM attendee;
+
+countAttachments:
+SELECT count(*)
+FROM attachment;

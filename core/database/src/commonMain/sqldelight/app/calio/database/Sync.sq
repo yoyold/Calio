@@ -1,0 +1,63 @@
+-- Outbox. Written in the same transaction as the mutation it describes.
+appendChange:
+INSERT INTO change_log(entity_type, entity_id, operation, revision, created_at, synced_at)
+VALUES (?, ?, ?, ?, ?, NULL);
+
+selectPendingChanges:
+SELECT *
+FROM change_log
+WHERE synced_at IS NULL
+ORDER BY seq
+LIMIT :limit;
+
+countPendingChanges:
+SELECT count(*)
+FROM change_log
+WHERE synced_at IS NULL;
+
+markChangesSynced:
+UPDATE change_log
+SET synced_at = :syncedAt
+WHERE seq <= :upToSeq AND synced_at IS NULL;
+
+-- Acknowledged rows are kept only long enough to answer "did this device already send it".
+pruneSyncedChanges:
+DELETE FROM change_log
+WHERE synced_at IS NOT NULL AND synced_at < :olderThan;
+
+initialiseSyncState:
+INSERT OR IGNORE INTO sync_state(id, device_id, remote_cursor, last_sync_at, clock_millis, clock_counter)
+VALUES (1, ?, NULL, NULL, 0, 0);
+
+selectSyncState:
+SELECT *
+FROM sync_state
+WHERE id = 1;
+
+updateCursor:
+UPDATE sync_state
+SET remote_cursor = :remoteCursor, last_sync_at = :lastSyncAt
+WHERE id = 1;
+
+updateClock:
+UPDATE sync_state
+SET clock_millis = :clockMillis, clock_counter = :clockCounter
+WHERE id = 1;
+
+recordConflict:
+INSERT INTO sync_conflict(
+    id, entity_type, entity_id, local_revision, remote_revision,
+    discarded_payload, detected_at, resolved_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, NULL);
+
+selectOpenConflicts:
+SELECT *
+FROM sync_conflict
+WHERE resolved_at IS NULL
+ORDER BY detected_at DESC;
+
+resolveConflict:
+UPDATE sync_conflict
+SET resolved_at = :resolvedAt
+WHERE id = :id;

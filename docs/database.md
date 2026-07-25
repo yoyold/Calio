@@ -149,19 +149,31 @@ CREATE INDEX task_parent_idx ON task(parent_task_id);
 
 ### Search: `search_index`
 
-Full-text search uses an FTS5 external-content table so the text is not duplicated.
+Full-text search uses an FTS5 table that holds a copy of the searchable text.
 
 ```sql
 CREATE VIRTUAL TABLE search_index USING fts5(
     title, description, notes, location,
     entity_id UNINDEXED,
     entity_type UNINDEXED,
-    tokenize = 'unicode61 remove_diacritics 2'
+    tokenize = 'unicode61 remove_diacritics 1'
 );
 ```
 
-Triggers on `event` and `task` keep the index in sync on insert, update and soft delete. Diacritic
-folding means "Buro" finds "Büro". Ranking uses `bm25()` with a higher weight on `title`.
+An external-content table would avoid the copy, but it requires an `INTEGER` rowid on the source
+table and Calio uses uuid primary keys. The duplicated text costs a few kilobytes and buys a much
+simpler index that triggers can maintain on their own.
+
+`remove_diacritics 1` rather than `2`: level 2 needs a newer SQLite than the oldest supported Android
+release ships. Level 1 already folds the Latin-1 range, so "Buro" finds "Büro".
+
+Triggers on `event` and `task` keep the index in sync on insert, update, soft delete and hard delete,
+so no write path can forget it. Ranking uses `bm25()` weighted towards `title`, with `location`
+ahead of the body text.
+
+FTS5 is available in the SQLite that ships with the minimum supported Android release. If it ever
+turns out to be missing on a particular device, the fallback is to bundle SQLite with the app rather
+than to change the schema.
 
 ### Sync: `change_log`
 

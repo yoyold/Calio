@@ -1,0 +1,259 @@
+-- The complete schema, in creation order.
+--
+-- All data definition lives in this one file because order matters: triggers can only be created
+-- once the tables they reference exist. Query statements live in the per-entity files next to this
+-- one, where order is irrelevant.
+--
+-- Conventions:
+--   * identifiers are TEXT uuids, timestamps are INTEGER epoch milliseconds
+--   * wall-clock values are TEXT in ISO-8601, and are the source of truth
+--   * *_utc columns are derived from them and exist only so range queries stay integer comparisons
+--   * every range is half open: start is included, end is not
+--   * deletes are soft, so a tombstone can still reach the other devices
+
+CREATE TABLE calendar (
+    id             TEXT    NOT NULL PRIMARY KEY,
+    name           TEXT    NOT NULL,
+    color          INTEGER NOT NULL,
+    is_visible     INTEGER NOT NULL DEFAULT 1,
+    is_default     INTEGER NOT NULL DEFAULT 0,
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    created_at     INTEGER NOT NULL,
+    updated_at     INTEGER NOT NULL,
+    revision       TEXT    NOT NULL,
+    deleted_at     INTEGER,
+    origin_device  TEXT    NOT NULL
+);
+
+CREATE TABLE category (
+    id             TEXT    NOT NULL PRIMARY KEY,
+    name           TEXT    NOT NULL,
+    color          INTEGER NOT NULL,
+    is_built_in    INTEGER NOT NULL DEFAULT 0,
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    created_at     INTEGER NOT NULL,
+    updated_at     INTEGER NOT NULL,
+    revision       TEXT    NOT NULL,
+    deleted_at     INTEGER,
+    origin_device  TEXT    NOT NULL
+);
+
+-- Category names are unique among the living rows only, so a name can be reused after a deletion.
+CREATE UNIQUE INDEX category_name_idx ON category(name COLLATE NOCASE) WHERE deleted_at IS NULL;
+
+CREATE TABLE event (
+    id                   TEXT    NOT NULL PRIMARY KEY,
+    calendar_id          TEXT    NOT NULL REFERENCES calendar(id),
+    category_id          TEXT             REFERENCES category(id),
+    title                TEXT    NOT NULL,
+    description          TEXT,
+    notes                TEXT,
+    location_label       TEXT,
+    location_lat         REAL,
+    location_lon         REAL,
+
+    is_all_day           INTEGER NOT NULL DEFAULT 0,
+    start_local          TEXT    NOT NULL,
+    end_local            TEXT    NOT NULL,
+    time_zone_id         TEXT,
+    start_utc            INTEGER NOT NULL,
+    end_utc              INTEGER NOT NULL,
+
+    recurrence_rule      TEXT,
+    -- Upper bound of the whole series, NULL when it never ends. This is what keeps the range query
+    -- cheap: a series that ended before the visible window can be skipped without expanding it.
+    recurrence_until_utc INTEGER,
+
+    color_override       INTEGER,
+    kind                 TEXT    NOT NULL DEFAULT 'STANDARD',
+    busy_status          TEXT    NOT NULL DEFAULT 'BUSY',
+    status               TEXT    NOT NULL DEFAULT 'CONFIRMED',
+
+    created_at           INTEGER NOT NULL,
+    updated_at           INTEGER NOT NULL,
+    revision             TEXT    NOT NULL,
+    deleted_at           INTEGER,
+    origin_device        TEXT    NOT NULL,
+
+    CHECK (end_utc >= start_utc)
+);
+
+CREATE INDEX event_range_idx ON event(start_utc, end_utc);
+CREATE INDEX event_calendar_idx ON event(calendar_id);
+CREATE INDEX event_category_idx ON event(category_id);
+CREATE INDEX event_recurring_idx ON event(recurrence_until_utc) WHERE recurrence_rule IS NOT NULL;
+
+CREATE TABLE recurrence_override (
+    event_id       TEXT NOT NULL REFERENCES event(id) ON DELETE CASCADE,
+    original_start TEXT NOT NULL,
+    type           TEXT NOT NULL,
+    patch_json     TEXT,
+    PRIMARY KEY (event_id, original_start),
+    CHECK (type IN ('CANCELLED', 'MODIFIED')),
+    CHECK (type = 'MODIFIED' OR patch_json IS NULL)
+);
+
+CREATE TABLE task (
+    id               TEXT    NOT NULL PRIMARY KEY,
+    parent_task_id   TEXT             REFERENCES task(id) ON DELETE CASCADE,
+    category_id      TEXT             REFERENCES category(id),
+    title            TEXT    NOT NULL,
+    description      TEXT,
+    priority         TEXT    NOT NULL DEFAULT 'NONE',
+    due_local        TEXT,
+    due_time_zone_id TEXT,
+    due_utc          INTEGER,
+    progress_percent INTEGER NOT NULL DEFAULT 0,
+    is_completed     INTEGER NOT NULL DEFAULT 0,
+    completed_at     INTEGER,
+    sort_order       INTEGER NOT NULL DEFAULT 0,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL,
+    revision         TEXT    NOT NULL,
+    deleted_at       INTEGER,
+    origin_device    TEXT    NOT NULL,
+
+    CHECK (progress_percent BETWEEN 0 AND 100),
+    CHECK (is_completed = 1 OR completed_at IS NULL)
+);
+
+CREATE INDEX task_due_idx ON task(due_utc);
+CREATE INDEX task_parent_idx ON task(parent_task_id);
+
+CREATE TABLE reminder (
+    id             TEXT    NOT NULL PRIMARY KEY,
+    event_id       TEXT             REFERENCES event(id) ON DELETE CASCADE,
+    task_id        TEXT             REFERENCES task(id)  ON DELETE CASCADE,
+    trigger_type   TEXT    NOT NULL,
+    lead_minutes   INTEGER,
+    absolute_utc   INTEGER,
+    channel        TEXT    NOT NULL DEFAULT 'NOTIFICATION',
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+
+    -- A reminder belongs to exactly one parent, never to both and never to neither.
+    CHECK ((event_id IS NULL) <> (task_id IS NULL)),
+    CHECK (trigger_type IN ('BEFORE_START', 'BEFORE_END', 'ABSOLUTE')),
+    CHECK (trigger_type = 'ABSOLUTE' OR lead_minutes IS NOT NULL),
+    CHECK (trigger_type <> 'ABSOLUTE' OR absolute_utc IS NOT NULL)
+);
+
+CREATE INDEX reminder_event_idx ON reminder(event_id);
+CREATE INDEX reminder_task_idx ON reminder(task_id);
+
+CREATE TABLE attendee (
+    id         TEXT    NOT NULL PRIMARY KEY,
+    event_id   TEXT    NOT NULL REFERENCES event(id) ON DELETE CASCADE,
+    name       TEXT    NOT NULL,
+    email      TEXT,
+    role       TEXT    NOT NULL DEFAULT 'REQUIRED',
+    response   TEXT    NOT NULL DEFAULT 'NEEDS_ACTION',
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX attendee_event_idx ON attendee(event_id);
+
+CREATE TABLE attachment (
+    id          TEXT    NOT NULL PRIMARY KEY,
+    event_id    TEXT    NOT NULL REFERENCES event(id) ON DELETE CASCADE,
+    file_name   TEXT    NOT NULL,
+    mime_type   TEXT    NOT NULL,
+    size_bytes  INTEGER NOT NULL,
+    checksum    TEXT    NOT NULL,
+    -- NULL while the content has not been fetched onto this device. Only the metadata is synced.
+    local_path  TEXT,
+    sort_order  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX attachment_event_idx ON attachment(event_id);
+
+-- The outbox. One row per local mutation, written in the same transaction as the mutation itself,
+-- which is what makes the outbox incapable of disagreeing with the data.
+CREATE TABLE change_log (
+    seq          INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    entity_type  TEXT    NOT NULL,
+    entity_id    TEXT    NOT NULL,
+    operation    TEXT    NOT NULL,
+    revision     TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL,
+    synced_at    INTEGER,
+
+    CHECK (operation IN ('UPSERT', 'DELETE'))
+);
+
+CREATE INDEX change_log_pending_idx ON change_log(seq) WHERE synced_at IS NULL;
+
+-- Single row, guarded by the CHECK so a second one cannot be inserted by accident.
+CREATE TABLE sync_state (
+    id             INTEGER NOT NULL PRIMARY KEY,
+    device_id      TEXT    NOT NULL,
+    remote_cursor  TEXT,
+    last_sync_at   INTEGER,
+    clock_millis   INTEGER NOT NULL DEFAULT 0,
+    clock_counter  INTEGER NOT NULL DEFAULT 0,
+
+    CHECK (id = 1)
+);
+
+-- Conflicts are recorded rather than resolved silently, so the discarded version stays recoverable.
+CREATE TABLE sync_conflict (
+    id                TEXT    NOT NULL PRIMARY KEY,
+    entity_type       TEXT    NOT NULL,
+    entity_id         TEXT    NOT NULL,
+    local_revision    TEXT    NOT NULL,
+    remote_revision   TEXT    NOT NULL,
+    discarded_payload TEXT    NOT NULL,
+    detected_at       INTEGER NOT NULL,
+    resolved_at       INTEGER
+);
+
+CREATE INDEX sync_conflict_open_idx ON sync_conflict(detected_at) WHERE resolved_at IS NULL;
+
+-- Full-text search over events and tasks.
+--
+-- The text is duplicated into this table rather than referenced through an external-content table:
+-- external content requires an INTEGER rowid on the source table, and Calio uses uuid primary keys.
+-- The duplication is a few kilobytes and buys a much simpler, trigger-maintained index.
+--
+-- remove_diacritics 1 rather than 2 because level 2 needs a newer SQLite than the oldest supported
+-- Android release ships. Level 1 already folds the Latin-1 range, so "Buro" finds "Büro".
+CREATE VIRTUAL TABLE search_index USING fts5(
+    title,
+    description,
+    notes,
+    location,
+    entity_id UNINDEXED,
+    entity_type UNINDEXED,
+    tokenize = 'unicode61 remove_diacritics 1'
+);
+
+CREATE TRIGGER event_search_insert AFTER INSERT ON event WHEN new.deleted_at IS NULL BEGIN
+    INSERT INTO search_index(title, description, notes, location, entity_id, entity_type)
+    VALUES (new.title, new.description, new.notes, new.location_label, new.id, 'EVENT');
+END;
+
+CREATE TRIGGER event_search_update AFTER UPDATE ON event BEGIN
+    DELETE FROM search_index WHERE entity_id = old.id AND entity_type = 'EVENT';
+    INSERT INTO search_index(title, description, notes, location, entity_id, entity_type)
+    SELECT new.title, new.description, new.notes, new.location_label, new.id, 'EVENT'
+    WHERE new.deleted_at IS NULL;
+END;
+
+CREATE TRIGGER event_search_delete AFTER DELETE ON event BEGIN
+    DELETE FROM search_index WHERE entity_id = old.id AND entity_type = 'EVENT';
+END;
+
+CREATE TRIGGER task_search_insert AFTER INSERT ON task WHEN new.deleted_at IS NULL BEGIN
+    INSERT INTO search_index(title, description, notes, location, entity_id, entity_type)
+    VALUES (new.title, new.description, NULL, NULL, new.id, 'TASK');
+END;
+
+CREATE TRIGGER task_search_update AFTER UPDATE ON task BEGIN
+    DELETE FROM search_index WHERE entity_id = old.id AND entity_type = 'TASK';
+    INSERT INTO search_index(title, description, notes, location, entity_id, entity_type)
+    SELECT new.title, new.description, NULL, NULL, new.id, 'TASK'
+    WHERE new.deleted_at IS NULL;
+END;
+
+CREATE TRIGGER task_search_delete AFTER DELETE ON task BEGIN
+    DELETE FROM search_index WHERE entity_id = old.id AND entity_type = 'TASK';
+END;

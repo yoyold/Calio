@@ -1,0 +1,39 @@
+insert:
+INSERT INTO category(
+    id, name, color, is_built_in, sort_order,
+    created_at, updated_at, revision, deleted_at, origin_device
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE category
+SET name = :name,
+    color = :color,
+    sort_order = :sortOrder,
+    updated_at = :updatedAt,
+    revision = :revision,
+    origin_device = :originDevice
+WHERE id = :id;
+
+selectAll:
+SELECT *
+FROM category
+WHERE deleted_at IS NULL
+ORDER BY sort_order, name COLLATE NOCASE;
+
+selectById:
+SELECT *
+FROM category
+WHERE id = ?;
+
+-- Built-in categories may be renamed and recoloured but never deleted, so that no event can end up
+-- pointing at a category that is gone.
+softDelete:
+UPDATE category
+SET deleted_at = :deletedAt, updated_at = :deletedAt, revision = :revision
+WHERE id = :id AND is_built_in = 0;
+
+countLiving:
+SELECT count(*)
+FROM category
+WHERE deleted_at IS NULL;

@@ -1,0 +1,33 @@
+insert:
+INSERT INTO reminder(
+    id, event_id, task_id, trigger_type, lead_minutes, absolute_utc, channel, sort_order
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+selectForEvent:
+SELECT *
+FROM reminder
+WHERE event_id = ?
+ORDER BY sort_order;
+
+selectForTask:
+SELECT *
+FROM reminder
+WHERE task_id = ?
+ORDER BY sort_order;
+
+deleteForEvent:
+DELETE FROM reminder
+WHERE event_id = ?;
+
+deleteForTask:
+DELETE FROM reminder
+WHERE task_id = ?;
+
+deleteById:
+DELETE FROM reminder
+WHERE id = ?;
+
+countAll:
+SELECT count(*)
+FROM reminder;

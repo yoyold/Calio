@@ -1,0 +1,51 @@
+insert:
+INSERT INTO calendar(
+    id, name, color, is_visible, is_default, sort_order,
+    created_at, updated_at, revision, deleted_at, origin_device
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE calendar
+SET name = :name,
+    color = :color,
+    is_visible = :isVisible,
+    is_default = :isDefault,
+    sort_order = :sortOrder,
+    updated_at = :updatedAt,
+    revision = :revision,
+    origin_device = :originDevice
+WHERE id = :id;
+
+selectAll:
+SELECT *
+FROM calendar
+WHERE deleted_at IS NULL
+ORDER BY sort_order, name COLLATE NOCASE;
+
+selectVisible:
+SELECT *
+FROM calendar
+WHERE deleted_at IS NULL AND is_visible = 1
+ORDER BY sort_order, name COLLATE NOCASE;
+
+selectById:
+SELECT *
+FROM calendar
+WHERE id = ?;
+
+setVisibility:
+UPDATE calendar
+SET is_visible = :isVisible, updated_at = :updatedAt, revision = :revision
+WHERE id = :id;
+
+-- Clears the flag everywhere first; the caller sets it on the new default in the same transaction.
+clearDefault:
+UPDATE calendar
+SET is_default = 0
+WHERE is_default = 1;
+
+softDelete:
+UPDATE calendar
+SET deleted_at = :deletedAt, updated_at = :deletedAt, revision = :revision
+WHERE id = :id;

@@ -1,0 +1,27 @@
+-- Full-text search over events and tasks.
+--
+-- The weights passed to bm25 put a match in the title far ahead of one in the body, with the
+-- location in between. bm25 returns smaller values for better matches, so ascending order is the
+-- best-first order.
+search:
+SELECT entity_id, entity_type, bm25(search_index, 10.0, 1.0, 1.0, 2.0) AS rank
+FROM search_index
+WHERE search_index MATCH :query
+ORDER BY rank
+LIMIT :limit;
+
+searchEvents:
+SELECT entity_id, bm25(search_index, 10.0, 1.0, 1.0, 2.0) AS rank
+FROM search_index
+WHERE search_index MATCH :query AND entity_type = 'EVENT'
+ORDER BY rank
+LIMIT :limit;
+
+countIndexed:
+SELECT count(*)
+FROM search_index;
+
+countIndexedOfType:
+SELECT count(*)
+FROM search_index
+WHERE entity_type = ?;
