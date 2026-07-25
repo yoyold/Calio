@@ -1,0 +1,53 @@
+# --- Build output ---------------------------------------------------------
+.gradle/
+build/
+out/
+.kotlin/
+
+# --- Local machine configuration ------------------------------------------
+# Points at the local Android SDK / NDK path, differs per machine.
+local.properties
+
+# --- Secrets --------------------------------------------------------------
+# Signing material and credentials must never be tracked.
+*.jks
+*.keystore
+*.p12
+keystore.properties
+secrets.properties
+.env
+.env.*
+
+# --- Android --------------------------------------------------------------
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.cxx/
+lint-results*.html
+lint-results*.xml
+
+# --- IDE ------------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.fleet/
+.vscode/
+
+# --- Operating system -----------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Runtime and diagnostics ----------------------------------------------
+*.log
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# --- Local working files --------------------------------------------------
+# Scratch notes that are useful locally but are not project documentation.
+/notes/
+*.local.md
