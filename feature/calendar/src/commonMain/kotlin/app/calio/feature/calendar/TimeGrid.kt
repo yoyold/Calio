@@ -202,7 +202,9 @@ private fun HourAxis(
     sharedWindow: DayWindow?,
 ) {
     val hours = (date.dayLengthIn(zone).inWholeMinutes / MINUTES_PER_HOUR).toInt()
-    val accent = CalioTheme.colors.workingHoursEdge
+    // The label takes the solid accent rather than the hairline colour: a line may be almost
+    // transparent and still be seen, text at the same alpha would just be hard to read.
+    val accent = MaterialTheme.colorScheme.primary
 
     Column(Modifier.width(AXIS_WIDTH).height(hourHeight * hours)) {
         repeat(hours) { hour ->
@@ -216,7 +218,7 @@ private fun HourAxis(
                 Text(
                     text = LocalTime(hour.coerceAtMost(23), 0).clockLabel(),
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (isBoundary) FontWeight.SemiBold else null,
+                    fontWeight = if (isBoundary) FontWeight.Medium else null,
                     color = if (isBoundary) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -288,7 +290,7 @@ private fun DayColumn(
                         color = edgeColor,
                         start = Offset(0f, y),
                         end = Offset(size.width, y),
-                        strokeWidth = 1.5f,
+                        strokeWidth = 1f,
                     )
                 }
 
@@ -296,9 +298,9 @@ private fun DayColumn(
                 // read as two unrelated rules; a bracket reads as one region.
                 drawLine(
                     color = edgeColor,
-                    start = Offset(0.75f, startY),
-                    end = Offset(0.75f, endY),
-                    strokeWidth = 1.5f,
+                    start = Offset(0.5f, startY),
+                    end = Offset(0.5f, endY),
+                    strokeWidth = 1f,
                 )
             }
 
