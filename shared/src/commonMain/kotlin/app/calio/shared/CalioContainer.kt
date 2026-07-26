@@ -4,6 +4,7 @@ import app.calio.data.repository.CalendarRepositoryImpl
 import app.calio.data.repository.CategoryRepositoryImpl
 import app.calio.data.repository.EventRepositoryImpl
 import app.calio.data.repository.SearchRepositoryImpl
+import app.calio.data.repository.SettingsRepositoryImpl
 import app.calio.data.repository.TaskRepositoryImpl
 import app.calio.data.sync.HybridLogicalClock
 import app.calio.database.CalioDatabase
@@ -18,6 +19,7 @@ import app.calio.domain.repository.CalendarRepository
 import app.calio.domain.repository.CategoryRepository
 import app.calio.domain.repository.EventRepository
 import app.calio.domain.repository.SearchRepository
+import app.calio.domain.repository.SettingsRepository
 import app.calio.domain.repository.TaskRepository
 import app.calio.domain.sync.RevisionSource
 import app.calio.model.DeviceId
@@ -62,6 +64,7 @@ class CalioContainer(
     val events: EventRepository = EventRepositoryImpl(database, revisions, dispatcher, clock)
     val tasks: TaskRepository = TaskRepositoryImpl(database, revisions, dispatcher, clock)
     val search: SearchRepository = SearchRepositoryImpl(database, dispatcher)
+    val settings: SettingsRepository = SettingsRepositoryImpl(database, dispatcher)
 
     val recurrenceExpander: RecurrenceExpander = RecurrenceExpander()
     val overlapLayout: OverlapLayoutCalculator = OverlapLayoutCalculator()

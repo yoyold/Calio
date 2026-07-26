@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,18 +21,21 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.calio.designsystem.CalioTheme
+import app.calio.model.AppSettings
+import app.calio.model.ThemeMode
 import app.calio.feature.calendar.CalendarScreen
 import app.calio.feature.calendar.CalendarViewModel
 import app.calio.feature.eventeditor.EditorTarget
 import app.calio.feature.eventeditor.EventEditorScreen
 import app.calio.feature.eventeditor.EventEditorViewModel
 import app.calio.feature.search.SearchScreen
+import app.calio.feature.settings.SettingsScreen
+import app.calio.feature.settings.SettingsViewModel
 import app.calio.feature.search.SearchViewModel
 import app.calio.feature.tasks.TasksScreen
 import app.calio.feature.tasks.TasksViewModel
 import app.calio.shared.ui.AppDestination
 import app.calio.shared.ui.AppShell
-import app.calio.shared.ui.PlaceholderScreen
 import kotlinx.datetime.TimeZone
 
 /**
@@ -43,13 +47,21 @@ import kotlinx.datetime.TimeZone
 @Composable
 fun CalioApp(
     container: CalioContainer,
-    useDarkTheme: Boolean = isSystemInDarkTheme(),
+    systemInDarkTheme: Boolean = isSystemInDarkTheme(),
 ) {
     var destination by remember { mutableStateOf(AppDestination.Calendar) }
     var editorTarget by remember { mutableStateOf<EditorTarget?>(null) }
 
+    val settings by container.settings.observe().collectAsState(AppSettings())
+
     LaunchedEffect(container) {
         DefaultDataSeeder(container.calendars, container.categories, container.deviceId).seedIfEmpty()
+    }
+
+    val useDarkTheme = when (settings.themeMode) {
+        ThemeMode.SYSTEM -> systemInDarkTheme
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
     }
 
     CalioTheme(useDarkTheme = useDarkTheme) {
@@ -77,7 +89,10 @@ fun CalioApp(
                         modifier = contentModifier,
                     )
 
-                    else -> PlaceholderScreen(destination, contentModifier)
+                    AppDestination.Settings -> SettingsScreen(
+                        viewModel = rememberSettingsViewModel(container),
+                        modifier = contentModifier,
+                    )
                 }
             }
 
@@ -143,7 +158,17 @@ private fun rememberCalendarViewModel(container: CalioContainer): CalendarViewMo
         categories = container.categories,
         expander = container.recurrenceExpander,
         layout = container.overlapLayout,
+        settings = container.settings,
         zone = TimeZone.currentSystemDefault(),
+    )
+}
+
+@Composable
+private fun rememberSettingsViewModel(container: CalioContainer): SettingsViewModel = viewModel {
+    SettingsViewModel(
+        settings = container.settings,
+        calendars = container.calendars,
+        categories = container.categories,
     )
 }
 

@@ -10,6 +10,7 @@ import app.calio.model.RecurrenceRule
 import app.calio.testing.FakeCalendarRepository
 import app.calio.testing.FakeCategoryRepository
 import app.calio.testing.FakeEventRepository
+import app.calio.testing.FakeSettingsRepository
 import app.calio.testing.testAllDayEvent
 import app.calio.testing.testCalendar
 import app.calio.testing.testEvent
@@ -57,6 +58,7 @@ class CalendarViewModelTest {
             categories = FakeCategoryRepository(),
             expander = RecurrenceExpander(),
             layout = OverlapLayoutCalculator(),
+            settings = FakeSettingsRepository(),
             zone = testZone,
             clock = clock,
         )

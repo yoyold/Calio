@@ -208,6 +208,15 @@ CREATE TABLE sync_conflict (
 
 CREATE INDEX sync_conflict_open_idx ON sync_conflict(detected_at) WHERE resolved_at IS NULL;
 
+-- Settings, kept in the database rather than in a store of their own.
+--
+-- Working hours and buffer rules are user data: they belong in a backup and will eventually have to
+-- reach the other device. A second storage location would be a second thing to remember.
+CREATE TABLE preference (
+    key   TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 -- Full-text search over events and tasks.
 --
 -- The text is duplicated into this table rather than referenced through an external-content table:

@@ -6,7 +6,9 @@ import app.calio.domain.repository.CategoryRepository
 import app.calio.domain.repository.EventRepository
 import app.calio.domain.repository.SearchHit
 import app.calio.domain.repository.SearchRepository
+import app.calio.domain.repository.SettingsRepository
 import app.calio.domain.repository.TaskRepository
+import app.calio.model.AppSettings
 import app.calio.model.Calendar
 import app.calio.model.CalendarId
 import app.calio.model.Category
@@ -181,6 +183,19 @@ class FakeTaskRepository(tasks: List<Task> = emptyList()) : TaskRepository {
     private fun TaskDue.sortInstant() = when (this) {
         is TaskDue.OnDate -> date.atStartOfDayIn(TimeZone.UTC)
         is TaskDue.AtTime -> dateTime.toInstant(timeZone)
+    }
+}
+
+class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRepository {
+
+    private val state = MutableStateFlow(initial)
+
+    val stored: AppSettings get() = state.value
+
+    override fun observe(): Flow<AppSettings> = state
+
+    override suspend fun update(settings: AppSettings) {
+        state.value = settings
     }
 }
 

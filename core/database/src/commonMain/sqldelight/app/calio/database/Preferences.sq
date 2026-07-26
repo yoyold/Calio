@@ -1,0 +1,13 @@
+selectByKey:
+SELECT value
+FROM preference
+WHERE key = ?;
+
+-- Settings are written whole rather than merged, so replacing the row is the whole update.
+put:
+INSERT OR REPLACE INTO preference(key, value)
+VALUES (?, ?);
+
+remove:
+DELETE FROM preference
+WHERE key = ?;

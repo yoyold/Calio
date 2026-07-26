@@ -4,6 +4,7 @@ import app.calio.data.repository.CalendarRepositoryImpl
 import app.calio.data.repository.CategoryRepositoryImpl
 import app.calio.data.repository.EventRepositoryImpl
 import app.calio.data.repository.SearchRepositoryImpl
+import app.calio.data.repository.SettingsRepositoryImpl
 import app.calio.data.repository.TaskRepositoryImpl
 import app.calio.data.sync.HybridLogicalClock
 import app.calio.database.CalioDatabase
@@ -74,6 +75,7 @@ internal class TestEnvironment(
     val events = EventRepositoryImpl(database, revisions, dispatcher, clock)
     val tasks = TaskRepositoryImpl(database, revisions, dispatcher, clock)
     val search = SearchRepositoryImpl(database, dispatcher)
+    val settings = SettingsRepositoryImpl(database, dispatcher)
 
     fun pendingChanges() = database.syncQueries.selectPendingChanges(limit = 100).executeAsList()
 

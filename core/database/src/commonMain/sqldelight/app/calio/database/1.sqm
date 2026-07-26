@@ -1,0 +1,8 @@
+-- Adds the settings table.
+--
+-- The first migration in the project. Existing installations keep their data and gain an empty
+-- table; the settings repository falls back to its defaults until something is written.
+CREATE TABLE preference (
+    key   TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);

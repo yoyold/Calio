@@ -26,8 +26,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.calio.designsystem.CalioTheme
 import app.calio.designsystem.icon.CalioIcons
-import app.calio.ui.EmptyState
-import app.calio.ui.ScreenHeader
 
 /**
  * The destinations the application is organised into.
@@ -120,21 +118,6 @@ private fun AppMark() {
                 text = "C",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimary,
-            )
-        }
-    }
-}
-
-/** Shown where a feature is not part of the application yet. */
-@Composable
-fun PlaceholderScreen(destination: AppDestination, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize()) {
-        ScreenHeader(title = destination.label)
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(
-                icon = destination.icon,
-                title = "${destination.label} is on its way",
-                message = "This part of the application has not been built yet.",
             )
         }
     }

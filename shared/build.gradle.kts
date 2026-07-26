@@ -15,6 +15,7 @@ kotlin {
             api(projects.feature.calendar)
             api(projects.feature.eventEditor)
             api(projects.feature.search)
+            api(projects.feature.settings)
             api(projects.feature.tasks)
             implementation(projects.core.model)
             implementation(projects.core.datetime)

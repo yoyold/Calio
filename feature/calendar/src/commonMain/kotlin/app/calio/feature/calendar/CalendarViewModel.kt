@@ -12,6 +12,8 @@ import app.calio.domain.recurrence.RecurrenceExpander
 import app.calio.domain.repository.CalendarRepository
 import app.calio.domain.repository.CategoryRepository
 import app.calio.domain.repository.EventRepository
+import app.calio.domain.repository.SettingsRepository
+import app.calio.model.AppSettings
 import app.calio.model.CalioColor
 import app.calio.model.Event
 import app.calio.model.EventTimeRange
@@ -48,22 +50,28 @@ class CalendarViewModel(
     private val categories: CategoryRepository,
     private val expander: RecurrenceExpander,
     private val layout: OverlapLayoutCalculator,
+    private val settings: SettingsRepository,
     private val zone: TimeZone,
     private val clock: Clock = Clock.System,
-    private val weekStart: DayOfWeek = DayOfWeek.MONDAY,
 ) : ViewModel() {
 
     private val selection = MutableStateFlow(
         Selection(period = CalendarPeriod.WEEK, anchor = clock.today(zone)),
     )
 
-    val state: StateFlow<CalendarUiState> = selection
-        .flatMapLatest { current -> observeDays(current).map { days -> current.toState(days) } }
+    /** The week start and the working hours come from the settings, so changing them redraws. */
+    val state: StateFlow<CalendarUiState> = combine(selection, settings.observe()) { current, config ->
+        current to config
+    }.flatMapLatest { (current, config) ->
+        observeDays(current, config.weekStart).map { days -> current.toState(days, config) }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MILLIS),
-            initialValue = selection.value.toState(emptyList()),
+            initialValue = selection.value.toState(emptyList(), AppSettings()),
         )
+
+    private val weekStart: DayOfWeek get() = state.value.weekStart
 
     fun onEvent(event: CalendarUiEvent) = when (event) {
         is CalendarUiEvent.SelectPeriod -> selection.update { it.copy(period = event.period) }
@@ -83,7 +91,7 @@ class CalendarViewModel(
         }
     }
 
-    private fun observeDays(selection: Selection): Flow<List<CalendarDay>> {
+    private fun observeDays(selection: Selection, weekStart: DayOfWeek): Flow<List<CalendarDay>> {
         // The grid range rather than the plain period: a month view draws whole weeks, so it needs
         // the leading and trailing days of the neighbouring months as well.
         val dates = selection.period.gridRangeOf(selection.anchor, weekStart)
@@ -142,13 +150,14 @@ class CalendarViewModel(
         )
     }
 
-    private fun Selection.toState(days: List<CalendarDay>) = CalendarUiState(
+    private fun Selection.toState(days: List<CalendarDay>, config: AppSettings) = CalendarUiState(
         period = period,
         anchor = anchor,
         today = clock.today(zone),
         zone = zone,
-        weekStart = weekStart,
+        weekStart = config.weekStart,
         days = days,
+        workingHours = config.workingHours,
     )
 
     private data class Selection(val period: CalendarPeriod, val anchor: LocalDate)

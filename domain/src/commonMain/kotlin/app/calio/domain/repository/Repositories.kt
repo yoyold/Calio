@@ -1,6 +1,7 @@
 package app.calio.domain.repository
 
 import app.calio.datetime.InstantRange
+import app.calio.model.AppSettings
 import app.calio.model.Calendar
 import app.calio.model.CalendarId
 import app.calio.model.Category
@@ -80,6 +81,17 @@ interface TaskRepository {
     suspend fun upsert(task: Task)
     suspend fun setCompleted(id: TaskId, isCompleted: Boolean)
     suspend fun delete(id: TaskId)
+}
+
+/**
+ * The user's settings, read and written as a whole.
+ *
+ * Reading returns the defaults until something has been written, so no screen has to deal with the
+ * question of whether the application has been configured yet.
+ */
+interface SettingsRepository {
+    fun observe(): Flow<AppSettings>
+    suspend fun update(settings: AppSettings)
 }
 
 /** A single search entry point, because the index spans events and tasks alike. */
