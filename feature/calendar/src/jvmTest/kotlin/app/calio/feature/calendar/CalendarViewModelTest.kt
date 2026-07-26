@@ -7,6 +7,13 @@ import app.calio.model.Event
 import app.calio.model.EventTimeRange
 import app.calio.model.Frequency
 import app.calio.model.RecurrenceRule
+import app.calio.testing.FakeCalendarRepository
+import app.calio.testing.FakeCategoryRepository
+import app.calio.testing.FakeEventRepository
+import app.calio.testing.testAllDayEvent
+import app.calio.testing.testCalendar
+import app.calio.testing.testEvent
+import app.calio.testing.testZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first

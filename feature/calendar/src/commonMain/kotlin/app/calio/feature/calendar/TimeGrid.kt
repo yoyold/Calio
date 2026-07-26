@@ -2,6 +2,7 @@ package app.calio.feature.calendar
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -56,17 +57,19 @@ import kotlin.time.Instant
 fun TimeGrid(
     state: CalendarUiState,
     now: Instant,
+    onSelectEntry: (EventOccurrence) -> Unit,
+    onSelectSlot: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
     hourHeight: Dp = DEFAULT_HOUR_HEIGHT,
 ) {
     if (state.days.isEmpty()) return
 
     Column(modifier.fillMaxSize()) {
-        DayHeaderRow(state)
+        DayHeaderRow(state, onSelectSlot)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         if (state.hasAllDayEntries) {
-            AllDayRow(state)
+            AllDayRow(state, onSelectEntry)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
 
@@ -79,6 +82,7 @@ fun TimeGrid(
                     state = state,
                     now = now,
                     hourHeight = hourHeight,
+                    onSelectEntry = onSelectEntry,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -87,12 +91,12 @@ fun TimeGrid(
 }
 
 @Composable
-private fun DayHeaderRow(state: CalendarUiState) {
+private fun DayHeaderRow(state: CalendarUiState, onSelectDay: (LocalDate) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = CalioTheme.spacing.small)) {
         Box(Modifier.width(AXIS_WIDTH))
         state.days.forEach { day ->
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).clickable { onSelectDay(day.date) },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
@@ -137,7 +141,7 @@ private fun DayHeaderRow(state: CalendarUiState) {
  * timed appointment behind them.
  */
 @Composable
-private fun AllDayRow(state: CalendarUiState) {
+private fun AllDayRow(state: CalendarUiState, onSelectEntry: (EventOccurrence) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = CalioTheme.spacing.extraSmall)) {
         Box(Modifier.width(AXIS_WIDTH), contentAlignment = Alignment.CenterEnd) {
             Text(
@@ -164,6 +168,7 @@ private fun AllDayRow(state: CalendarUiState) {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(CalioTheme.radius.small))
                             .background(background)
+                            .clickable { onSelectEntry(entry.occurrence) }
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
@@ -200,6 +205,7 @@ private fun DayColumn(
     state: CalendarUiState,
     now: Instant,
     hourHeight: Dp,
+    onSelectEntry: (EventOccurrence) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val dayStart = day.date.atStartOfDayIn(state.zone)
@@ -252,6 +258,7 @@ private fun DayColumn(
 
             EventBlock(
                 entry = entry,
+                onClick = { onSelectEntry(entry.occurrence) },
                 modifier = Modifier
                     .offset(
                         x = slotWidth * entry.column,
@@ -282,7 +289,7 @@ private fun DayColumn(
 }
 
 @Composable
-private fun EventBlock(entry: TimedEntry, modifier: Modifier = Modifier) {
+private fun EventBlock(entry: TimedEntry, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val base = Color(entry.color.argb.toInt())
     val isBuffer = entry.occurrence.event.kind == EventKind.BUFFER
     val background = if (isBuffer) base.copy(alpha = 0.25f) else base
@@ -292,6 +299,7 @@ private fun EventBlock(entry: TimedEntry, modifier: Modifier = Modifier) {
         modifier = modifier
             .clip(RoundedCornerShape(CalioTheme.radius.small))
             .background(background)
+            .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         Text(

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,10 +26,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.calio.datetime.CalendarPeriod
 import app.calio.designsystem.icon.CalioIcons
+import app.calio.model.EventId
 import app.calio.ui.ScreenHeader
 import app.calio.ui.headingLabel
 import app.calio.ui.weekdayName
 import kotlinx.coroutines.delay
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -41,6 +45,8 @@ import kotlin.time.Instant
 @Composable
 fun CalendarScreen(
     viewModel: CalendarViewModel,
+    onCreateEvent: (LocalDate) -> Unit,
+    onOpenEvent: (EventId, LocalDateTime) -> Unit,
     modifier: Modifier = Modifier,
     clock: Clock = Clock.System,
 ) {
@@ -56,7 +62,14 @@ fun CalendarScreen(
         }
     }
 
-    CalendarScreen(state = state, onEvent = viewModel::onEvent, now = now, modifier = modifier)
+    CalendarScreen(
+        state = state,
+        onEvent = viewModel::onEvent,
+        now = now,
+        onCreateEvent = onCreateEvent,
+        onOpenEvent = onOpenEvent,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -64,6 +77,8 @@ fun CalendarScreen(
     state: CalendarUiState,
     onEvent: (CalendarUiEvent) -> Unit,
     now: Instant,
+    onCreateEvent: (LocalDate) -> Unit,
+    onOpenEvent: (EventId, LocalDateTime) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val range = state.period.rangeOf(state.anchor, state.weekStart)
@@ -84,10 +99,19 @@ fun CalendarScreen(
                 IconButton(onClick = { onEvent(CalendarUiEvent.GoToNext) }) {
                     Icon(CalioIcons.ChevronRight, contentDescription = "Next", Modifier.size(20.dp))
                 }
+                FilledIconButton(onClick = { onCreateEvent(state.anchor) }) {
+                    Icon(CalioIcons.Plus, contentDescription = "New event", Modifier.size(20.dp))
+                }
             },
         )
 
-        TimeGrid(state = state, now = now, modifier = Modifier.fillMaxSize())
+        TimeGrid(
+            state = state,
+            now = now,
+            onSelectEntry = { occurrence -> onOpenEvent(occurrence.eventId, occurrence.originalStart) },
+            onSelectSlot = onCreateEvent,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 

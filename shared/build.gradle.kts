@@ -13,6 +13,7 @@ kotlin {
             api(projects.core.designsystem)
             api(projects.core.ui)
             api(projects.feature.calendar)
+            api(projects.feature.eventEditor)
             implementation(projects.core.model)
             implementation(projects.core.datetime)
             implementation(libs.kotlinx.coroutines.core)

@@ -77,6 +77,15 @@ object CalioIcons {
         }
     }
 
+    val Close: ImageVector by lazy {
+        strokeIcon("Close") {
+            moveTo(6f, 6f)
+            lineTo(18f, 18f)
+            moveTo(18f, 6f)
+            lineTo(6f, 18f)
+        }
+    }
+
     val ChevronLeft: ImageVector by lazy {
         strokeIcon("ChevronLeft") {
             moveTo(14.5f, 5.5f)

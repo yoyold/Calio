@@ -5,8 +5,6 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // A feature depends on the contracts and on the shared interface building blocks, never
-            // on the data layer. That is what keeps a screen testable against fakes.
             api(projects.domain)
             implementation(projects.core.ui)
             implementation(projects.core.model)
@@ -19,7 +17,6 @@ kotlin {
         jvmTest.dependencies {
             implementation(projects.core.testing)
             implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.turbine)
         }
     }
 }
