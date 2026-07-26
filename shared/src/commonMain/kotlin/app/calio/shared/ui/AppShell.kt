@@ -5,18 +5,30 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import app.calio.designsystem.CalioTheme
+import app.calio.designsystem.icon.CalioIcons
 
 /**
  * The destinations the application is organised into.
@@ -24,11 +36,11 @@ import androidx.compose.ui.unit.dp
  * Declared as data rather than as a `when` inside the navigation bar, so adding a destination is one
  * entry here instead of an edit in three places.
  */
-enum class AppDestination(val label: String, val shortLabel: String) {
-    Calendar("Calendar", "Cal"),
-    Tasks("Tasks", "Tasks"),
-    Search("Search", "Find"),
-    Settings("Settings", "More"),
+enum class AppDestination(val label: String, val icon: ImageVector) {
+    Calendar("Calendar", CalioIcons.Calendar),
+    Tasks("Tasks", CalioIcons.Tasks),
+    Search("Search", CalioIcons.Search),
+    Settings("Settings", CalioIcons.Settings),
 }
 
 /**
@@ -46,54 +58,165 @@ fun AppShell(
     content: @Composable (Modifier) -> Unit,
 ) {
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val useRail = maxWidth >= RAIL_BREAKPOINT
-
-        if (useRail) {
+        if (maxWidth >= RAIL_BREAKPOINT) {
             Row(Modifier.fillMaxSize()) {
-                NavigationRail {
+                CalioNavigationRail(selected, onSelect)
+                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                content(Modifier.fillMaxSize())
+            }
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                content(Modifier.weight(1f).fillMaxWidth())
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                     AppDestination.entries.forEach { destination ->
-                        NavigationRailItem(
+                        NavigationBarItem(
                             selected = destination == selected,
                             onClick = { onSelect(destination) },
-                            icon = { Text(destination.shortLabel) },
+                            icon = { Icon(destination.icon, contentDescription = destination.label) },
                             label = { Text(destination.label) },
                         )
                     }
                 }
-                content(Modifier.fillMaxSize())
-            }
-        } else {
-            Scaffold(
-                bottomBar = {
-                    NavigationBar {
-                        AppDestination.entries.forEach { destination ->
-                            NavigationBarItem(
-                                selected = destination == selected,
-                                onClick = { onSelect(destination) },
-                                icon = { Text(destination.shortLabel) },
-                                label = { Text(destination.label) },
-                            )
-                        }
-                    }
-                },
-            ) { insets ->
-                content(Modifier.fillMaxSize().padding(insets))
             }
         }
     }
 }
 
+@Composable
+private fun CalioNavigationRail(
+    selected: AppDestination,
+    onSelect: (AppDestination) -> Unit,
+) {
+    NavigationRail(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        header = {
+            Spacer(Modifier.height(CalioTheme.spacing.small))
+            AppMark()
+            Spacer(Modifier.height(CalioTheme.spacing.small))
+        },
+    ) {
+        Spacer(Modifier.height(CalioTheme.spacing.small))
+        AppDestination.entries.forEach { destination ->
+            NavigationRailItem(
+                selected = destination == selected,
+                onClick = { onSelect(destination) },
+                icon = { Icon(destination.icon, contentDescription = destination.label) },
+                label = { Text(destination.label, style = MaterialTheme.typography.labelMedium) },
+            )
+        }
+    }
+}
+
+/** The wordless mark at the top of the rail: a calendar page with the accent as its header band. */
+@Composable
+private fun AppMark() {
+    Surface(
+        modifier = Modifier.size(36.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.primary,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "C",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+    }
+}
+
+/**
+ * The header of a screen.
+ *
+ * It is a plain row rather than a top app bar because the calendar needs the full height for its
+ * grid, and a bar that collapses on scroll would move the hour rows while the user is reading them.
+ */
+@Composable
+fun ScreenHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    actions: @Composable () -> Unit = {},
+) {
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = CalioTheme.spacing.extraLarge,
+                    vertical = CalioTheme.spacing.large,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                }
+                Text(text = title, style = MaterialTheme.typography.headlineMedium)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(CalioTheme.spacing.small)) { actions() }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
 /** Shown where a feature is not part of the application yet. */
 @Composable
-fun PlaceholderScreen(title: String, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(title, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
+fun PlaceholderScreen(destination: AppDestination, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxSize()) {
+        ScreenHeader(title = destination.label)
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            EmptyState(
+                icon = destination.icon,
+                title = "${destination.label} is on its way",
+                message = "This part of the application has not been built yet.",
+            )
         }
+    }
+}
+
+/**
+ * The standard way of saying that there is nothing here.
+ *
+ * A muted icon above two lines of text, never a blank area: an empty screen without an explanation
+ * reads as something that failed to load.
+ */
+@Composable
+fun EmptyState(
+    icon: ImageVector,
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.width(320.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(CalioTheme.spacing.small),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(32.dp),
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 

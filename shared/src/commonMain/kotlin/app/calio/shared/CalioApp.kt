@@ -1,6 +1,8 @@
 package app.calio.shared
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,11 +35,11 @@ fun CalioApp(
     }
 
     CalioTheme(useDarkTheme = useDarkTheme) {
-        Surface(Modifier) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             AppShell(selected = destination, onSelect = { destination = it }) { contentModifier ->
                 when (destination) {
                     AppDestination.Calendar -> OverviewScreen(container, contentModifier)
-                    else -> PlaceholderScreen(destination.label, contentModifier)
+                    else -> PlaceholderScreen(destination, contentModifier)
                 }
             }
         }
