@@ -5,22 +5,20 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // The composition root is the only place that sees both the implementations and the
-            // screens, so everything it wires is part of its public surface.
-            api(projects.data)
+            // A feature depends on the contracts and on the shared interface building blocks, never
+            // on the data layer. That is what keeps a screen testable against fakes.
             api(projects.domain)
-            api(projects.core.database)
-            api(projects.core.designsystem)
-            api(projects.core.ui)
-            api(projects.feature.calendar)
+            implementation(projects.core.ui)
             implementation(projects.core.model)
             implementation(projects.core.datetime)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.lifecycle.viewmodel)
             implementation(libs.lifecycle.viewmodel.compose)
+            implementation(libs.lifecycle.runtime.compose)
         }
         jvmTest.dependencies {
             implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.sqldelight.driver.jvm)
+            implementation(libs.turbine)
         }
     }
 }

@@ -12,6 +12,7 @@ import app.calio.database.createCalioDatabase
 import app.calio.domain.planning.BufferPlanner
 import app.calio.domain.planning.ConflictDetector
 import app.calio.domain.planning.FreeSlotFinder
+import app.calio.domain.planning.OverlapLayoutCalculator
 import app.calio.domain.recurrence.RecurrenceExpander
 import app.calio.domain.repository.CalendarRepository
 import app.calio.domain.repository.CategoryRepository
@@ -63,6 +64,7 @@ class CalioContainer(
     val search: SearchRepository = SearchRepositoryImpl(database, dispatcher)
 
     val recurrenceExpander: RecurrenceExpander = RecurrenceExpander()
+    val overlapLayout: OverlapLayoutCalculator = OverlapLayoutCalculator()
     val conflictDetector: ConflictDetector = ConflictDetector()
     val freeSlotFinder: FreeSlotFinder = FreeSlotFinder()
     val bufferPlanner: BufferPlanner = BufferPlanner()

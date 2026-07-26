@@ -16,6 +16,9 @@ kotlin {
             implementation(projects.shared)
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.core)
+            // Supplies the main dispatcher on the desktop. A view model scope runs on the main
+            // dispatcher, and on a plain JVM there is no such thing until a UI toolkit provides it.
+            implementation(libs.kotlinx.coroutines.swing)
         }
     }
 }

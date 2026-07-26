@@ -4,12 +4,17 @@ agp = "9.3.1"
 
 # Toolchain and Android SDK levels used by every module.
 jvmToolchain = "17"
-androidCompileSdk = "36"
+# Compiled against the newest APIs, while targetSdk states the behaviour the application is built
+# for. Raising this one is required by libraries that use newer APIs and changes nothing at runtime.
+androidCompileSdk = "37"
 androidMinSdk = "26"
 androidTargetSdk = "36"
 
 composeMultiplatform = "1.11.1"
+# Material 3 for Compose Multiplatform follows its own release train, so it has its own version.
+composeMaterial3 = "1.9.0"
 androidxActivityCompose = "1.13.0"
+jetbrainsLifecycle = "2.11.0"
 
 kotlinxCoroutines = "1.11.0"
 kotlinxDatetime = "0.8.0"
@@ -20,6 +25,7 @@ turbine = "1.2.1"
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
@@ -28,7 +34,15 @@ sqldelight-driver-android = { module = "app.cash.sqldelight:android-driver", ver
 sqldelight-driver-jvm = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
+
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
+lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "jetbrainsLifecycle" }
+lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "jetbrainsLifecycle" }
+lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "jetbrainsLifecycle" }
 
 # Plugin artifacts, resolved as dependencies by the convention plugins in build-logic.
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

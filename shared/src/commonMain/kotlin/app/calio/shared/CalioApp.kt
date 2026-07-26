@@ -11,11 +11,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.calio.designsystem.CalioTheme
+import app.calio.feature.calendar.CalendarScreen
+import app.calio.feature.calendar.CalendarViewModel
 import app.calio.shared.ui.AppDestination
 import app.calio.shared.ui.AppShell
-import app.calio.shared.ui.OverviewScreen
 import app.calio.shared.ui.PlaceholderScreen
+import kotlinx.datetime.TimeZone
 
 /**
  * The root of the user interface, shared by both applications.
@@ -38,10 +41,32 @@ fun CalioApp(
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             AppShell(selected = destination, onSelect = { destination = it }) { contentModifier ->
                 when (destination) {
-                    AppDestination.Calendar -> OverviewScreen(container, contentModifier)
+                    AppDestination.Calendar -> CalendarScreen(
+                        viewModel = rememberCalendarViewModel(container),
+                        modifier = contentModifier,
+                    )
+
                     else -> PlaceholderScreen(destination, contentModifier)
                 }
             }
         }
     }
+}
+
+/**
+ * Builds the calendar view model from the container.
+ *
+ * The factory sits here, in the composition root, so the feature module never learns which
+ * repository implementations exist — it only ever sees the contracts it was compiled against.
+ */
+@Composable
+private fun rememberCalendarViewModel(container: CalioContainer): CalendarViewModel = viewModel {
+    CalendarViewModel(
+        events = container.events,
+        calendars = container.calendars,
+        categories = container.categories,
+        expander = container.recurrenceExpander,
+        layout = container.overlapLayout,
+        zone = TimeZone.currentSystemDefault(),
+    )
 }
