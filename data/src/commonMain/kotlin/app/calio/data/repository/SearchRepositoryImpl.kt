@@ -21,10 +21,9 @@ class SearchRepositoryImpl(
      * thing the search actually computed.
      */
     override suspend fun search(query: String, limit: Int): List<SearchHit> = withContext(dispatcher) {
-        val sanitised = query.trim()
-        if (sanitised.isEmpty()) return@withContext emptyList()
+        val matchExpression = FtsQuery.from(query) ?: return@withContext emptyList()
 
-        database.searchQueries.search(query = sanitised, limit = limit.toLong())
+        database.searchQueries.search(query = matchExpression, limit = limit.toLong())
             .executeAsList()
             .mapNotNull { hit ->
                 val id = hit.entity_id ?: return@mapNotNull null

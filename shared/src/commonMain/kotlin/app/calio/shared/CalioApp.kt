@@ -25,6 +25,8 @@ import app.calio.feature.calendar.CalendarViewModel
 import app.calio.feature.eventeditor.EditorTarget
 import app.calio.feature.eventeditor.EventEditorScreen
 import app.calio.feature.eventeditor.EventEditorViewModel
+import app.calio.feature.search.SearchScreen
+import app.calio.feature.search.SearchViewModel
 import app.calio.feature.tasks.TasksScreen
 import app.calio.feature.tasks.TasksViewModel
 import app.calio.shared.ui.AppDestination
@@ -63,6 +65,15 @@ fun CalioApp(
 
                     AppDestination.Tasks -> TasksScreen(
                         viewModel = rememberTasksViewModel(container),
+                        modifier = contentModifier,
+                    )
+
+                    AppDestination.Search -> SearchScreen(
+                        viewModel = rememberSearchViewModel(container),
+                        onOpenEvent = { id -> editorTarget = EditorTarget.Edit(id) },
+                        // A result only knows which task it is, not where it sits in the list, so
+                        // this hands over to the task screen rather than pretending to scroll to it.
+                        onOpenTask = { destination = AppDestination.Tasks },
                         modifier = contentModifier,
                     )
 
@@ -133,6 +144,15 @@ private fun rememberCalendarViewModel(container: CalioContainer): CalendarViewMo
         expander = container.recurrenceExpander,
         layout = container.overlapLayout,
         zone = TimeZone.currentSystemDefault(),
+    )
+}
+
+@Composable
+private fun rememberSearchViewModel(container: CalioContainer): SearchViewModel = viewModel {
+    SearchViewModel(
+        search = container.search,
+        calendars = container.calendars,
+        categories = container.categories,
     )
 }
 
