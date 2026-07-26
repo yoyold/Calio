@@ -78,3 +78,6 @@ WHERE id = :id;
 deleteHard:
 DELETE FROM task
 WHERE id = ?;
+
+setDeletedAt:
+UPDATE task SET deleted_at = :deletedAt WHERE id = :id;

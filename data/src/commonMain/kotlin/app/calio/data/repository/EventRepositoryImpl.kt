@@ -97,124 +97,13 @@ class EventRepositoryImpl(
         )
 
         database.transaction {
-            val exists = events.selectById(stamped.id.value).executeAsOneOrNull() != null
-            if (exists) updateRow(stamped) else insertRow(stamped)
-            replaceChildren(stamped)
+            database.writeEvent(stamped)
             database.recordChange(
                 entity = SyncedEntity.EVENT,
                 entityId = stamped.id.value,
                 operation = SyncOperation.UPSERT,
                 revision = revision,
                 at = now,
-            )
-        }
-    }
-
-    private fun insertRow(event: Event) {
-        val range = event.timeRange
-        events.insert(
-            id = event.id.value,
-            calendar_id = event.calendarId.value,
-            category_id = event.categoryId?.value,
-            title = event.title,
-            description = event.description,
-            notes = event.notes,
-            location_label = event.location?.label,
-            location_lat = event.location?.latitude,
-            location_lon = event.location?.longitude,
-            is_all_day = if (range.isAllDay) 1 else 0,
-            start_local = range.startLocalText,
-            end_local = range.endLocalText,
-            time_zone_id = range.timeZoneIdOrNull,
-            start_utc = range.startUtc.toEpochMilliseconds(),
-            end_utc = range.endUtcExclusive.toEpochMilliseconds(),
-            recurrence_rule = event.recurrenceRuleText(),
-            recurrence_until_utc = seriesEndUtc(event)?.toEpochMilliseconds(),
-            color_override = event.colorOverride?.argb,
-            kind = event.kind.name,
-            busy_status = event.busyStatus.name,
-            status = event.status.name,
-            created_at = event.audit.createdAt.toEpochMilliseconds(),
-            updated_at = event.audit.updatedAt.toEpochMilliseconds(),
-            revision = event.audit.revision.value,
-            deleted_at = event.audit.deletedAt?.toEpochMilliseconds(),
-            origin_device = event.audit.originDevice.value,
-        )
-    }
-
-    private fun updateRow(event: Event) {
-        val range = event.timeRange
-        events.update(
-            calendarId = event.calendarId.value,
-            categoryId = event.categoryId?.value,
-            title = event.title,
-            description = event.description,
-            notes = event.notes,
-            locationLabel = event.location?.label,
-            locationLat = event.location?.latitude,
-            locationLon = event.location?.longitude,
-            isAllDay = if (range.isAllDay) 1 else 0,
-            startLocal = range.startLocalText,
-            endLocal = range.endLocalText,
-            timeZoneId = range.timeZoneIdOrNull,
-            startUtc = range.startUtc.toEpochMilliseconds(),
-            endUtc = range.endUtcExclusive.toEpochMilliseconds(),
-            recurrenceRule = event.recurrenceRuleText(),
-            recurrenceUntilUtc = seriesEndUtc(event)?.toEpochMilliseconds(),
-            colorOverride = event.colorOverride?.argb,
-            kind = event.kind.name,
-            busyStatus = event.busyStatus.name,
-            status = event.status.name,
-            updatedAt = event.audit.updatedAt.toEpochMilliseconds(),
-            revision = event.audit.revision.value,
-            originDevice = event.audit.originDevice.value,
-            id = event.id.value,
-        )
-    }
-
-    /**
-     * Children are replaced wholesale rather than diffed. They are few, they always arrive together
-     * with their event, and a diff would add a class of bug for no measurable gain.
-     */
-    private fun replaceChildren(event: Event) {
-        database.remindersQueries.deleteForEvent(event.id.value)
-        event.reminders.forEachIndexed { index, reminder ->
-            database.remindersQueries.insert(
-                id = reminder.id.value,
-                event_id = event.id.value,
-                task_id = null,
-                trigger_type = reminder.trigger.typeName,
-                lead_minutes = reminder.trigger.leadMinutesOrNull,
-                absolute_utc = reminder.trigger.absoluteUtcOrNull,
-                channel = reminder.channel.name,
-                sort_order = index.toLong(),
-            )
-        }
-
-        database.participantsQueries.deleteAttendeesForEvent(event.id.value)
-        event.attendees.forEachIndexed { index, attendee ->
-            database.participantsQueries.insertAttendee(
-                id = attendee.id.value,
-                event_id = event.id.value,
-                name = attendee.name,
-                email = attendee.email,
-                role = attendee.role.name,
-                response = attendee.response.name,
-                sort_order = index.toLong(),
-            )
-        }
-
-        database.participantsQueries.deleteAttachmentsForEvent(event.id.value)
-        event.attachments.forEachIndexed { index, attachment ->
-            database.participantsQueries.insertAttachment(
-                id = attachment.id.value,
-                event_id = event.id.value,
-                file_name = attachment.fileName,
-                mime_type = attachment.mimeType,
-                size_bytes = attachment.sizeBytes,
-                checksum = attachment.checksum,
-                local_path = attachment.localPath,
-                sort_order = index.toLong(),
             )
         }
     }

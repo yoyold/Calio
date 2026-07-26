@@ -49,3 +49,8 @@ softDelete:
 UPDATE calendar
 SET deleted_at = :deletedAt, updated_at = :deletedAt, revision = :revision
 WHERE id = :id;
+
+-- Sets or clears the tombstone. Separate from the update statements because a repository never
+-- resurrects a row, while an incoming change may carry either state.
+setDeletedAt:
+UPDATE calendar SET deleted_at = :deletedAt WHERE id = :id;

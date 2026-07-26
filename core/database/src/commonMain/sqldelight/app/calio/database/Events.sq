@@ -109,3 +109,11 @@ FROM recurrence_override;
 deleteOverride:
 DELETE FROM recurrence_override
 WHERE event_id = :eventId AND original_start = :originalStart;
+
+setDeletedAt:
+UPDATE event SET deleted_at = :deletedAt WHERE id = :id;
+
+-- Exceptions belong to their series and are replaced with it when a remote change arrives.
+deleteOverridesFor:
+DELETE FROM recurrence_override
+WHERE event_id = ?;

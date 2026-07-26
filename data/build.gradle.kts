@@ -10,6 +10,7 @@ kotlin {
             // fulfil and the database they take are part of this module's public surface.
             api(projects.domain)
             api(projects.core.database)
+            api(projects.core.sync)
             implementation(projects.core.model)
             implementation(projects.core.datetime)
             implementation(libs.kotlinx.coroutines.core)

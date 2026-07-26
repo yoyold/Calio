@@ -37,3 +37,6 @@ countLiving:
 SELECT count(*)
 FROM category
 WHERE deleted_at IS NULL;
+
+setDeletedAt:
+UPDATE category SET deleted_at = :deletedAt WHERE id = :id;
