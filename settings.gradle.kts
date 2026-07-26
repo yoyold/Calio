@@ -28,6 +28,10 @@ rootProject.name = "calio"
 
 include(":core:database")
 include(":core:datetime")
+include(":core:designsystem")
 include(":core:model")
 include(":data")
 include(":domain")
+include(":shared")
+include(":apps:desktop")
+include(":apps:android")

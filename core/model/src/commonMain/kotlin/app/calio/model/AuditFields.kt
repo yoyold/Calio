@@ -17,4 +17,20 @@ data class AuditFields(
     val deletedAt: Instant? = null,
 ) {
     val isDeleted: Boolean get() = deletedAt != null
+
+    companion object {
+        /**
+         * Audit data for an entity that has not been stored yet.
+         *
+         * The revision is provisional: the repository replaces it when it writes, because handing
+         * out logical timestamps is the storage layer's job and doing it here would let two entities
+         * built in the same millisecond claim the same one.
+         */
+        fun forNewEntity(now: Instant, deviceId: DeviceId): AuditFields = AuditFields(
+            createdAt = now,
+            updatedAt = now,
+            revision = Revision.of(now.toEpochMilliseconds(), 0, deviceId),
+            originDevice = deviceId,
+        )
+    }
 }

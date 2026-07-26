@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The window theme only has to get the application to its first frame; everything visible from
+        then on is drawn by Compose. Keeping it free of colours avoids a flash of a different palette
+        before the Compose theme takes over.
+    -->
+    <style name="Theme.Calio" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/background_light</item>
+    </style>
+</resources>
