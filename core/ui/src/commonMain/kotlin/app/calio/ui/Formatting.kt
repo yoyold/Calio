@@ -1,6 +1,7 @@
 package app.calio.ui
 
 import app.calio.datetime.DateRange
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -34,6 +35,16 @@ fun LocalDate.longLabel(): String = "$day ${monthName()} $year"
 
 /** For example `26 July`, used where the year is obvious from the context. */
 fun LocalDate.shortLabel(): String = "$day ${monthName()}"
+
+/** For example `July 2026`. */
+fun LocalDate.monthLabel(): String = "${monthName()} $year"
+
+/** Single letters for the weekday header of a compact month grid, starting at [weekStart]. */
+fun weekdayInitials(weekStart: DayOfWeek): List<String> = List(DAYS_PER_WEEK) { offset ->
+    WEEKDAY_ABBREVIATIONS[(weekStart.ordinal + offset) % DAYS_PER_WEEK].take(1)
+}
+
+private const val DAYS_PER_WEEK = 7
 
 /** Always two digits per part, so a column of times lines up. */
 fun LocalTime.clockLabel(): String =

@@ -25,10 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.calio.datetime.CalendarPeriod
+import app.calio.datetime.isoWeekNumber
 import app.calio.designsystem.icon.CalioIcons
+import app.calio.domain.recurrence.EventOccurrence
 import app.calio.model.EventId
 import app.calio.ui.ScreenHeader
 import app.calio.ui.headingLabel
+import app.calio.ui.longLabel
+import app.calio.ui.monthLabel
 import app.calio.ui.weekdayName
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDate
@@ -81,15 +85,10 @@ fun CalendarScreen(
     onOpenEvent: (EventId, LocalDateTime) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val range = state.period.rangeOf(state.anchor, state.weekStart)
-
     Column(modifier.fillMaxSize()) {
         ScreenHeader(
-            title = range.headingLabel(),
-            subtitle = when (state.period) {
-                CalendarPeriod.DAY -> state.anchor.weekdayName()
-                else -> null
-            },
+            title = state.headingTitle(),
+            subtitle = state.headingSubtitle(),
             actions = {
                 PeriodSwitcher(state.period) { onEvent(CalendarUiEvent.SelectPeriod(it)) }
                 TextButton(onClick = { onEvent(CalendarUiEvent.GoToToday) }) { Text("Today") }
@@ -105,29 +104,60 @@ fun CalendarScreen(
             },
         )
 
-        TimeGrid(
-            state = state,
-            now = now,
-            onSelectEntry = { occurrence -> onOpenEvent(occurrence.eventId, occurrence.originalStart) },
-            onSelectSlot = onCreateEvent,
-            modifier = Modifier.fillMaxSize(),
-        )
+        val openEntry = { occurrence: EventOccurrence ->
+            onOpenEvent(occurrence.eventId, occurrence.originalStart)
+        }
+
+        when (state.period) {
+            CalendarPeriod.DAY, CalendarPeriod.WEEK -> TimeGrid(
+                state = state,
+                now = now,
+                onSelectEntry = openEntry,
+                onSelectSlot = onCreateEvent,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            CalendarPeriod.MONTH -> MonthGrid(
+                state = state,
+                onSelectDay = { date -> onEvent(CalendarUiEvent.OpenDay(date)) },
+                onSelectEntry = openEntry,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            CalendarPeriod.YEAR -> YearGrid(
+                state = state,
+                onSelectDay = { date -> onEvent(CalendarUiEvent.OpenDay(date)) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
-/**
- * Only the views the grid can actually draw are offered.
- *
- * A switcher listing month and year before they exist would be four buttons of which two do nothing,
- * which reads as a broken application rather than an unfinished one.
- */
+private fun CalendarUiState.headingTitle(): String = when (period) {
+    CalendarPeriod.DAY -> anchor.longLabel()
+    CalendarPeriod.WEEK -> period.rangeOf(anchor, weekStart).headingLabel()
+    CalendarPeriod.MONTH -> anchor.monthLabel()
+    CalendarPeriod.YEAR -> anchor.year.toString()
+}
+
+private fun CalendarUiState.headingSubtitle(): String? = when (period) {
+    CalendarPeriod.DAY -> anchor.weekdayName()
+    CalendarPeriod.WEEK -> "Week ${isoWeekNumber(anchor)}"
+    else -> null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PeriodSwitcher(
     selected: CalendarPeriod,
     onSelect: (CalendarPeriod) -> Unit,
 ) {
-    val options = listOf(CalendarPeriod.DAY to "Day", CalendarPeriod.WEEK to "Week")
+    val options = listOf(
+        CalendarPeriod.DAY to "Day",
+        CalendarPeriod.WEEK to "Week",
+        CalendarPeriod.MONTH to "Month",
+        CalendarPeriod.YEAR to "Year",
+    )
 
     SingleChoiceSegmentedButtonRow(Modifier.padding(end = 4.dp)) {
         options.forEachIndexed { index, (period, label) ->

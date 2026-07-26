@@ -205,6 +205,87 @@ class CalendarViewModelTest {
     }
 
     @Test
+    fun `the month view is always six full weeks`() = runTest {
+        val viewModel = viewModel(emptyList())
+        viewModel.state.first { it.days.isNotEmpty() }
+
+        viewModel.onEvent(CalendarUiEvent.SelectPeriod(CalendarPeriod.MONTH))
+
+        val state = viewModel.state.first { it.period == CalendarPeriod.MONTH && it.days.size == 42 }
+        // August 2026 starts on a Saturday, so the grid opens on 27 July.
+        assertEquals(LocalDate(2026, 7, 27), state.days.first().date)
+        assertEquals(LocalDate(2026, 9, 6), state.days.last().date)
+    }
+
+    @Test
+    fun `the month view carries the days of the neighbouring months`() = runTest {
+        val viewModel = viewModel(emptyList())
+        viewModel.state.first { it.days.isNotEmpty() }
+        viewModel.onEvent(CalendarUiEvent.SelectPeriod(CalendarPeriod.MONTH))
+
+        val state = viewModel.state.first { it.days.size == 42 }
+
+        assertEquals(31, state.days.count { it.date.month == LocalDate(2026, 8, 1).month })
+        assertEquals(1, state.days.count { it.isToday })
+    }
+
+    @Test
+    fun `the year view covers every day of the year`() = runTest {
+        val viewModel = viewModel(emptyList())
+        viewModel.state.first { it.days.isNotEmpty() }
+
+        viewModel.onEvent(CalendarUiEvent.SelectPeriod(CalendarPeriod.YEAR))
+
+        val state = viewModel.state.first { it.period == CalendarPeriod.YEAR && it.days.size > 300 }
+        assertEquals(365, state.days.size)
+        assertEquals(LocalDate(2026, 1, 1), state.days.first().date)
+        assertEquals(LocalDate(2026, 12, 31), state.days.last().date)
+    }
+
+    @Test
+    fun `the year view reports how busy each day is`() = runTest {
+        val event = testEvent(
+            start = LocalDateTime(2026, 8, 5, 9, 0),
+            endExclusive = LocalDateTime(2026, 8, 5, 10, 0),
+        )
+        val viewModel = viewModel(listOf(event))
+        viewModel.state.first { it.days.isNotEmpty() }
+
+        viewModel.onEvent(CalendarUiEvent.SelectPeriod(CalendarPeriod.YEAR))
+
+        val state = viewModel.state.first { it.period == CalendarPeriod.YEAR && it.days.size == 365 }
+        assertEquals(1, state.load.getValue(LocalDate(2026, 8, 5)))
+        assertEquals(0, state.load.getValue(LocalDate(2026, 8, 6)))
+    }
+
+    @Test
+    fun `opening a day from a month cell switches to the day view`() = runTest {
+        val viewModel = viewModel(emptyList())
+        viewModel.state.first { it.days.isNotEmpty() }
+        viewModel.onEvent(CalendarUiEvent.SelectPeriod(CalendarPeriod.MONTH))
+        viewModel.state.first { it.days.size == 42 }
+
+        viewModel.onEvent(CalendarUiEvent.OpenDay(LocalDate(2026, 8, 20)))
+
+        val state = viewModel.state.first { it.period == CalendarPeriod.DAY }
+        assertEquals(LocalDate(2026, 8, 20), state.anchor)
+        assertEquals(listOf(LocalDate(2026, 8, 20)), state.days.map { it.date })
+    }
+
+    @Test
+    fun `paging in the month view moves a whole month`() = runTest {
+        val viewModel = viewModel(emptyList())
+        viewModel.state.first { it.days.isNotEmpty() }
+        viewModel.onEvent(CalendarUiEvent.SelectPeriod(CalendarPeriod.MONTH))
+        viewModel.state.first { it.days.size == 42 }
+
+        viewModel.onEvent(CalendarUiEvent.GoToNext)
+
+        val state = viewModel.state.first { it.anchor == LocalDate(2026, 9, 1) }
+        assertEquals(42, state.days.size)
+    }
+
+    @Test
     fun `selecting a date moves the view to it`() = runTest {
         val viewModel = viewModel(emptyList())
         viewModel.state.first { it.days.isNotEmpty() }

@@ -77,10 +77,16 @@ class CalendarViewModel(
         }
 
         CalendarUiEvent.GoToToday -> selection.update { it.copy(anchor = clock.today(zone)) }
+
+        is CalendarUiEvent.OpenDay -> selection.update {
+            it.copy(anchor = event.date, period = CalendarPeriod.DAY)
+        }
     }
 
     private fun observeDays(selection: Selection): Flow<List<CalendarDay>> {
-        val dates = selection.period.rangeOf(selection.anchor, weekStart)
+        // The grid range rather than the plain period: a month view draws whole weeks, so it needs
+        // the leading and trailing days of the neighbouring months as well.
+        val dates = selection.period.gridRangeOf(selection.anchor, weekStart)
         val window = dates.toInstantRange(zone)
 
         return combine(

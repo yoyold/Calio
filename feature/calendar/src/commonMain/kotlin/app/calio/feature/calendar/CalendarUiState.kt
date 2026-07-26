@@ -51,11 +51,19 @@ data class CalendarUiState(
     val workingHours: WorkingHours = WorkingHours.Default,
 ) {
     val hasAllDayEntries: Boolean get() = days.any { it.allDay.isNotEmpty() }
+
+    /** How busy each day is, which is all the year view needs to draw. */
+    val load: Map<LocalDate, Int>
+        get() = days.associate { it.date to it.timed.size + it.allDay.size }
 }
 
 sealed interface CalendarUiEvent {
     data class SelectPeriod(val period: CalendarPeriod) : CalendarUiEvent
     data class SelectDate(val date: LocalDate) : CalendarUiEvent
+
+    /** Zooming in from a month or year cell: the date and the view change together. */
+    data class OpenDay(val date: LocalDate) : CalendarUiEvent
+
     data object GoToPrevious : CalendarUiEvent
     data object GoToNext : CalendarUiEvent
     data object GoToToday : CalendarUiEvent
