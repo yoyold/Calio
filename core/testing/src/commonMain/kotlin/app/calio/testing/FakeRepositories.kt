@@ -6,6 +6,7 @@ import app.calio.domain.repository.CategoryRepository
 import app.calio.domain.repository.EventRepository
 import app.calio.domain.repository.SearchHit
 import app.calio.domain.repository.SearchRepository
+import app.calio.domain.repository.TaskRepository
 import app.calio.model.Calendar
 import app.calio.model.CalendarId
 import app.calio.model.Category
@@ -13,10 +14,16 @@ import app.calio.model.CategoryId
 import app.calio.model.Event
 import app.calio.model.EventId
 import app.calio.model.RecurrenceOverride
+import app.calio.model.Task
+import app.calio.model.TaskDue
+import app.calio.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toInstant
 
 /**
  * In-memory stand-ins for the repository contracts.
@@ -122,6 +129,58 @@ class FakeCategoryRepository(
 
     override suspend fun delete(id: CategoryId) {
         state.value = state.value.filterNot { it.id == id }
+    }
+}
+
+class FakeTaskRepository(tasks: List<Task> = emptyList()) : TaskRepository {
+
+    private val state = MutableStateFlow(tasks)
+
+    val stored: List<Task> get() = state.value
+
+    override fun observeAll(): Flow<List<Task>> = state
+
+    override fun observeTopLevel(): Flow<List<Task>> =
+        state.map { all -> all.filter { it.parentTaskId == null } }
+
+    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
+        state.map { all -> all.filter { it.parentTaskId == parentId } }
+
+    override fun observeDueInRange(window: InstantRange): Flow<List<Task>> = state.map { all ->
+        all.filter { task ->
+            val due = task.due?.sortInstant() ?: return@filter false
+            due >= window.start && due < window.endExclusive
+        }
+    }
+
+    override suspend fun byId(id: TaskId): Task? = state.value.find { it.id == id }
+
+    override suspend fun upsert(task: Task) {
+        state.value = state.value.filterNot { it.id == task.id } + task
+    }
+
+    override suspend fun setCompleted(id: TaskId, isCompleted: Boolean) {
+        state.value = state.value.map { task ->
+            if (task.id != id) {
+                task
+            } else {
+                task.copy(
+                    isCompleted = isCompleted,
+                    completedAt = if (isCompleted) task.audit.updatedAt else null,
+                    progressPercent = if (isCompleted) 100 else 0,
+                )
+            }
+        }
+    }
+
+    override suspend fun delete(id: TaskId) {
+        // Deleting a parent takes its subtasks with it, as the schema's cascade does.
+        state.value = state.value.filterNot { it.id == id || it.parentTaskId == id }
+    }
+
+    private fun TaskDue.sortInstant() = when (this) {
+        is TaskDue.OnDate -> date.atStartOfDayIn(TimeZone.UTC)
+        is TaskDue.AtTime -> dateTime.toInstant(timeZone)
     }
 }
 

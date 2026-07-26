@@ -31,6 +31,14 @@ SELECT *
 FROM task
 WHERE id = ?;
 
+-- Tasks are few compared to events, so the list is served the whole set and groups it by parent
+-- itself. One query beats one subscription per parent task.
+selectAll:
+SELECT *
+FROM task
+WHERE deleted_at IS NULL
+ORDER BY is_completed, sort_order, due_utc;
+
 selectTopLevel:
 SELECT *
 FROM task

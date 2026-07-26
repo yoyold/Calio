@@ -30,6 +30,9 @@ class TaskRepositoryImpl(
 
     private val tasks = database.tasksQueries
 
+    override fun observeAll(): Flow<List<Task>> =
+        tasks.selectAll().asFlow().mapToList(dispatcher).map { rows -> rows.map { it.toDomain() } }
+
     override fun observeTopLevel(): Flow<List<Task>> =
         tasks.selectTopLevel().asFlow().mapToList(dispatcher).map { rows -> rows.map { it.toDomain() } }
 

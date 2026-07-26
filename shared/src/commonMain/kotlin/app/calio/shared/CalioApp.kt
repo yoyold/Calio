@@ -25,6 +25,8 @@ import app.calio.feature.calendar.CalendarViewModel
 import app.calio.feature.eventeditor.EditorTarget
 import app.calio.feature.eventeditor.EventEditorScreen
 import app.calio.feature.eventeditor.EventEditorViewModel
+import app.calio.feature.tasks.TasksScreen
+import app.calio.feature.tasks.TasksViewModel
 import app.calio.shared.ui.AppDestination
 import app.calio.shared.ui.AppShell
 import app.calio.shared.ui.PlaceholderScreen
@@ -56,6 +58,11 @@ fun CalioApp(
                         viewModel = rememberCalendarViewModel(container),
                         onCreateEvent = { date -> editorTarget = EditorTarget.New(date) },
                         onOpenEvent = { id, start -> editorTarget = EditorTarget.Edit(id, start) },
+                        modifier = contentModifier,
+                    )
+
+                    AppDestination.Tasks -> TasksScreen(
+                        viewModel = rememberTasksViewModel(container),
                         modifier = contentModifier,
                     )
 
@@ -125,6 +132,15 @@ private fun rememberCalendarViewModel(container: CalioContainer): CalendarViewMo
         categories = container.categories,
         expander = container.recurrenceExpander,
         layout = container.overlapLayout,
+        zone = TimeZone.currentSystemDefault(),
+    )
+}
+
+@Composable
+private fun rememberTasksViewModel(container: CalioContainer): TasksViewModel = viewModel {
+    TasksViewModel(
+        tasks = container.tasks,
+        categories = container.categories,
         zone = TimeZone.currentSystemDefault(),
     )
 }

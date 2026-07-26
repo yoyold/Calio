@@ -70,6 +70,9 @@ interface EventRepository {
 }
 
 interface TaskRepository {
+    /** Every living task, parents and subtasks alike, for a list that groups them itself. */
+    fun observeAll(): Flow<List<Task>>
+
     fun observeTopLevel(): Flow<List<Task>>
     fun observeSubtasks(parentId: TaskId): Flow<List<Task>>
     fun observeDueInRange(window: InstantRange): Flow<List<Task>>
