@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,7 @@ import app.calio.datetime.dayLengthIn
 import app.calio.designsystem.CalioTheme
 import app.calio.designsystem.readableContentColor
 import app.calio.domain.recurrence.EventOccurrence
+import app.calio.model.DayWindow
 import app.calio.model.EventKind
 import app.calio.model.EventTimeRange
 import app.calio.ui.clockLabel
@@ -74,7 +76,14 @@ fun TimeGrid(
         }
 
         Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            HourAxis(state.zone, state.days.first().date, hourHeight)
+            HourAxis(
+                zone = state.zone,
+                date = state.days.first().date,
+                hourHeight = hourHeight,
+                // The axis only marks the boundary hours when every visible day shares them.
+                // Highlighting one day's times across a week of different ones would be a lie.
+                sharedWindow = state.sharedWorkingWindow(),
+            )
             state.days.forEachIndexed { index, day ->
                 if (index > 0) VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 DayColumn(
@@ -95,6 +104,10 @@ private fun DayHeaderRow(state: CalendarUiState, onSelectDay: (LocalDate) -> Uni
     Row(Modifier.fillMaxWidth().padding(vertical = CalioTheme.spacing.small)) {
         Box(Modifier.width(AXIS_WIDTH))
         state.days.forEach { day ->
+            // A day nobody works on is held back in the header too, so a shaded column reads as
+            // "not a working day" rather than as something having gone wrong with it.
+            val isWorkingDay = state.workingHours.isWorkingDay(day.date.dayOfWeek)
+
             Column(
                 modifier = Modifier.weight(1f).clickable { onSelectDay(day.date) },
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -102,7 +115,11 @@ private fun DayHeaderRow(state: CalendarUiState, onSelectDay: (LocalDate) -> Uni
                 Text(
                     text = day.date.weekdayAbbreviation(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isWorkingDay) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    },
                 )
                 // Today is marked by a filled disc rather than a coloured number: the number stays
                 // the same weight as its neighbours, so the row does not look misaligned.
@@ -122,10 +139,10 @@ private fun DayHeaderRow(state: CalendarUiState, onSelectDay: (LocalDate) -> Uni
                     Text(
                         text = day.date.day.toString(),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (day.isToday) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                        color = when {
+                            day.isToday -> MaterialTheme.colorScheme.onPrimary
+                            isWorkingDay -> MaterialTheme.colorScheme.onSurface
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
                 }
@@ -178,17 +195,29 @@ private fun AllDayRow(state: CalendarUiState, onSelectEntry: (EventOccurrence) -
 }
 
 @Composable
-private fun HourAxis(zone: TimeZone, date: LocalDate, hourHeight: Dp) {
+private fun HourAxis(
+    zone: TimeZone,
+    date: LocalDate,
+    hourHeight: Dp,
+    sharedWindow: DayWindow?,
+) {
     val hours = (date.dayLengthIn(zone).inWholeMinutes / MINUTES_PER_HOUR).toInt()
+    val accent = CalioTheme.colors.workingHoursEdge
 
     Column(Modifier.width(AXIS_WIDTH).height(hourHeight * hours)) {
         repeat(hours) { hour ->
+            // The two hours the working day starts and ends on are named in the accent colour, so
+            // the axis itself answers what the shading means without anyone having to look it up.
+            val isBoundary = sharedWindow != null &&
+                (hour == sharedWindow.start.hour || hour == sharedWindow.endExclusive.hour)
+
             Box(Modifier.height(hourHeight).fillMaxWidth()) {
                 // The label sits on the line it belongs to, nudged up by half its own height.
                 Text(
                     text = LocalTime(hour.coerceAtMost(23), 0).clockLabel(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isBoundary) FontWeight.SemiBold else null,
+                    color = if (isBoundary) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .offset(y = (-6).dp)
@@ -198,6 +227,13 @@ private fun HourAxis(zone: TimeZone, date: LocalDate, hourHeight: Dp) {
         }
     }
 }
+
+/** The working window shared by every visible day, or null when they differ. */
+private fun CalendarUiState.sharedWorkingWindow(): DayWindow? =
+    days.map { workingHours.windowFor(it.date.dayOfWeek) }
+        .filterNotNull()
+        .distinct()
+        .singleOrNull()
 
 @Composable
 private fun DayColumn(
@@ -214,25 +250,55 @@ private fun DayColumn(
 
     val lineColor = MaterialTheme.colorScheme.outlineVariant
     val nonWorking = CalioTheme.colors.nonWorkingHours
+    val bandColor = CalioTheme.colors.workingHoursBand
+    val edgeColor = CalioTheme.colors.workingHoursEdge
     val workingWindow = state.workingHours.windowFor(day.date.dayOfWeek)
 
     BoxWithConstraints(modifier.height(columnHeight)) {
         val columnWidth = maxWidth
 
         Canvas(Modifier.fillMaxSize()) {
-            // Hours outside the working day are shaded rather than hidden, so a late meeting is
-            // still visible but the eye is drawn to the part of the day that is planned.
+            // Hours outside the working day are pushed back, never highlighted: the tint darkens the
+            // surface in both themes, and the working band is left as the plain background so it
+            // reads as the part of the day that is planned.
+            //
+            // A hairline at each end gives the band a defined edge. Without it the shading looks
+            // like an unexplained block; with it, it looks like a boundary — which is what it is.
             val minuteHeight = size.height / dayMinutes
             if (workingWindow == null) {
                 drawRect(color = nonWorking)
             } else {
                 val startY = workingWindow.start.toMinuteOfDay() * minuteHeight
                 val endY = workingWindow.endExclusive.toMinuteOfDay() * minuteHeight
+
                 drawRect(color = nonWorking, size = size.copy(height = startY))
                 drawRect(
                     color = nonWorking,
                     topLeft = Offset(0f, endY),
                     size = size.copy(height = size.height - endY),
+                )
+                drawRect(
+                    color = bandColor,
+                    topLeft = Offset(0f, startY),
+                    size = size.copy(height = endY - startY),
+                )
+
+                listOf(startY, endY).forEach { y ->
+                    drawLine(
+                        color = edgeColor,
+                        start = Offset(0f, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = 1.5f,
+                    )
+                }
+
+                // A short bar down the left edge closes the band into a bracket. Two loose lines
+                // read as two unrelated rules; a bracket reads as one region.
+                drawLine(
+                    color = edgeColor,
+                    start = Offset(0.75f, startY),
+                    end = Offset(0.75f, endY),
+                    strokeWidth = 1.5f,
                 )
             }
 

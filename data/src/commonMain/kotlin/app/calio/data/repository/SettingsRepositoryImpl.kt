@@ -4,6 +4,7 @@ import app.calio.database.CalioDatabase
 import app.calio.domain.repository.SettingsRepository
 import app.calio.model.AppSettings
 import app.calio.model.BufferPolicy
+import app.calio.model.CategoryId
 import app.calio.model.DayWindow
 import app.calio.model.ThemeMode
 import app.calio.model.WorkingHours
@@ -70,6 +71,7 @@ private data class SettingsDto(
     val weekStart: Int,
     val workingHours: Map<Int, DayWindowDto>,
     val bufferPolicy: BufferPolicyDto,
+    val hiddenCategoryIds: List<String> = emptyList(),
 )
 
 @Serializable
@@ -109,6 +111,7 @@ private fun AppSettings.toDto() = SettingsDto(
         maximumGapMinutes = bufferPolicy.maximumGapMinutes,
         appliesToAllDayEvents = bufferPolicy.appliesToAllDayEvents,
     ),
+    hiddenCategoryIds = hiddenCategoryIds.map { it.value },
 )
 
 private fun SettingsDto.toDomain() = AppSettings(
@@ -126,6 +129,7 @@ private fun SettingsDto.toDomain() = AppSettings(
         maximumGapMinutes = bufferPolicy.maximumGapMinutes,
         appliesToAllDayEvents = bufferPolicy.appliesToAllDayEvents,
     ),
+    hiddenCategoryIds = hiddenCategoryIds.mapTo(mutableSetOf(), ::CategoryId),
 )
 
 // Times are stored as minutes from midnight: one integer, no parsing, and no way to write a value

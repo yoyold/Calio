@@ -2,7 +2,11 @@ package app.calio.feature.calendar
 
 import app.calio.datetime.CalendarPeriod
 import app.calio.domain.recurrence.EventOccurrence
+import app.calio.model.Calendar
+import app.calio.model.CalendarId
 import app.calio.model.CalioColor
+import app.calio.model.Category
+import app.calio.model.CategoryId
 import app.calio.model.WorkingHours
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -49,12 +53,18 @@ data class CalendarUiState(
     val weekStart: DayOfWeek = DayOfWeek.MONDAY,
     val days: List<CalendarDay> = emptyList(),
     val workingHours: WorkingHours = WorkingHours.Default,
+    /** Everything the legend lists, with the switches the user has set. */
+    val calendars: List<Calendar> = emptyList(),
+    val categories: List<Category> = emptyList(),
+    val hiddenCategoryIds: Set<CategoryId> = emptySet(),
 ) {
     val hasAllDayEntries: Boolean get() = days.any { it.allDay.isNotEmpty() }
 
     /** How busy each day is, which is all the year view needs to draw. */
     val load: Map<LocalDate, Int>
         get() = days.associate { it.date to it.timed.size + it.allDay.size }
+
+    fun isCategoryVisible(id: CategoryId): Boolean = id !in hiddenCategoryIds
 }
 
 sealed interface CalendarUiEvent {
@@ -67,4 +77,7 @@ sealed interface CalendarUiEvent {
     data object GoToPrevious : CalendarUiEvent
     data object GoToNext : CalendarUiEvent
     data object GoToToday : CalendarUiEvent
+
+    data class SetCalendarVisible(val id: CalendarId, val isVisible: Boolean) : CalendarUiEvent
+    data class SetCategoryVisible(val id: CategoryId, val isVisible: Boolean) : CalendarUiEvent
 }

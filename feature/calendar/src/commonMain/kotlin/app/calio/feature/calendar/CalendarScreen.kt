@@ -1,10 +1,14 @@
 package app.calio.feature.calendar
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -15,6 +19,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,6 +90,8 @@ fun CalendarScreen(
     onOpenEvent: (EventId, LocalDateTime) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var isLegendOpen by remember { mutableStateOf(false) }
+
     Column(modifier.fillMaxSize()) {
         ScreenHeader(
             title = state.headingTitle(),
@@ -98,6 +105,9 @@ fun CalendarScreen(
                 IconButton(onClick = { onEvent(CalendarUiEvent.GoToNext) }) {
                     Icon(CalioIcons.ChevronRight, contentDescription = "Next", Modifier.size(20.dp))
                 }
+                IconButton(onClick = { isLegendOpen = !isLegendOpen }) {
+                    Icon(CalioIcons.Layers, contentDescription = "Calendars", Modifier.size(20.dp))
+                }
                 FilledIconButton(onClick = { onCreateEvent(state.anchor) }) {
                     Icon(CalioIcons.Plus, contentDescription = "New event", Modifier.size(20.dp))
                 }
@@ -108,27 +118,56 @@ fun CalendarScreen(
             onOpenEvent(occurrence.eventId, occurrence.originalStart)
         }
 
-        when (state.period) {
-            CalendarPeriod.DAY, CalendarPeriod.WEEK -> TimeGrid(
-                state = state,
-                now = now,
-                onSelectEntry = openEntry,
-                onSelectSlot = onCreateEvent,
-                modifier = Modifier.fillMaxSize(),
-            )
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // Wide enough and the legend stays open beside the grid, the way a desktop calendar
+            // shows it. Narrower, it would take a third of the width from the thing it explains, so
+            // it moves behind the button in the header instead.
+            val showsLegendBeside = maxWidth >= LEGEND_BREAKPOINT
 
-            CalendarPeriod.MONTH -> MonthGrid(
-                state = state,
-                onSelectDay = { date -> onEvent(CalendarUiEvent.OpenDay(date)) },
-                onSelectEntry = openEntry,
-                modifier = Modifier.fillMaxSize(),
-            )
+            Row(Modifier.fillMaxSize()) {
+                if (showsLegendBeside) {
+                    LegendPanel(
+                        state = state,
+                        onEvent = onEvent,
+                        modifier = Modifier.width(LEGEND_WIDTH).fillMaxHeight(),
+                    )
+                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
 
-            CalendarPeriod.YEAR -> YearGrid(
-                state = state,
-                onSelectDay = { date -> onEvent(CalendarUiEvent.OpenDay(date)) },
-                modifier = Modifier.fillMaxSize(),
-            )
+                when (state.period) {
+                    CalendarPeriod.DAY, CalendarPeriod.WEEK -> TimeGrid(
+                        state = state,
+                        now = now,
+                        onSelectEntry = openEntry,
+                        onSelectSlot = onCreateEvent,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    CalendarPeriod.MONTH -> MonthGrid(
+                        state = state,
+                        onSelectDay = { date -> onEvent(CalendarUiEvent.OpenDay(date)) },
+                        onSelectEntry = openEntry,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    CalendarPeriod.YEAR -> YearGrid(
+                        state = state,
+                        onSelectDay = { date -> onEvent(CalendarUiEvent.OpenDay(date)) },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+
+            if (isLegendOpen && !showsLegendBeside) {
+                AlertDialog(
+                    onDismissRequest = { isLegendOpen = false },
+                    confirmButton = {
+                        TextButton(onClick = { isLegendOpen = false }) { Text("Done") }
+                    },
+                    title = { Text("Calendars and colours") },
+                    text = { LegendPanel(state = state, onEvent = onEvent) },
+                )
+            }
         }
     }
 }
@@ -173,3 +212,8 @@ private fun PeriodSwitcher(
 
 /** Half a minute is often enough for a line that only has to look current, and cheap to redraw. */
 private const val NOW_TICK_MILLIS = 30_000L
+
+/** Below this the legend would take more width from the grid than it gives back in clarity. */
+private val LEGEND_BREAKPOINT = 1_040.dp
+
+private val LEGEND_WIDTH = 220.dp

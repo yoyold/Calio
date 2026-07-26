@@ -16,7 +16,24 @@ data class CalioColors(
     val focusBlock: Color,
     val bufferBlock: Color,
     val conflict: Color,
+    /**
+     * Laid over the hours outside the working day.
+     *
+     * It always recedes, never advances: darker than the surface in both themes. A tint that
+     * lightens in dark mode reads as a highlight, which turns the hours the user does *not* work
+     * into the ones the eye goes to first.
+     */
     val nonWorkingHours: Color,
+    /**
+     * A faint accent laid over the working day itself.
+     *
+     * Recessing everything else says only what the working day is not. Tinting the band as well
+     * makes it a marked area rather than a gap between two shaded ones — which is what the eye
+     * looks for. It stays far below the saturation of an event so nothing on top has to compete.
+     */
+    val workingHoursBand: Color,
+    /** The hairline at the start and end of the working day, which gives the band an edge. */
+    val workingHoursEdge: Color,
     val nowIndicator: Color,
     val todayHighlight: Color,
     val dropTarget: Color,
@@ -26,7 +43,9 @@ internal val LightCalioColors = CalioColors(
     focusBlock = Color(0xFF6750A4),
     bufferBlock = Color(0xFF7D7A88),
     conflict = Color(0xFFB3261E),
-    nonWorkingHours = Color(0x0A000000),
+    nonWorkingHours = Color(0x0F000000),
+    workingHoursBand = Color(0x0D1B6EF3),
+    workingHoursEdge = Color(0x661B6EF3),
     nowIndicator = Color(0xFFE8452C),
     todayHighlight = Color(0xFF1B6EF3),
     dropTarget = Color(0x331B6EF3),
@@ -36,7 +55,9 @@ internal val DarkCalioColors = CalioColors(
     focusBlock = Color(0xFFD0BCFF),
     bufferBlock = Color(0xFFC9C5D0),
     conflict = Color(0xFFF2B8B5),
-    nonWorkingHours = Color(0x14FFFFFF),
+    nonWorkingHours = Color(0x38000000),
+    workingHoursBand = Color(0x1A9FC0FF),
+    workingHoursEdge = Color(0x669FC0FF),
     nowIndicator = Color(0xFFFF8A73),
     todayHighlight = Color(0xFF8AB4FF),
     dropTarget = Color(0x338AB4FF),

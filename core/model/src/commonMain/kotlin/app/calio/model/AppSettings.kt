@@ -19,4 +19,13 @@ data class AppSettings(
     val weekStart: DayOfWeek = DayOfWeek.MONDAY,
     val workingHours: WorkingHours = WorkingHours.Default,
     val bufferPolicy: BufferPolicy = BufferPolicy(),
-)
+    /**
+     * Categories the user has switched off in the calendar.
+     *
+     * Hidden rather than deleted, and stored as the exception rather than as a visibility flag on
+     * every category: a new category is visible without anyone having to say so.
+     */
+    val hiddenCategoryIds: Set<CategoryId> = emptySet(),
+) {
+    fun isCategoryVisible(id: CategoryId?): Boolean = id == null || id !in hiddenCategoryIds
+}

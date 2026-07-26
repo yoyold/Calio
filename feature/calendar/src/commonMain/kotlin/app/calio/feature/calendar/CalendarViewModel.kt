@@ -14,7 +14,9 @@ import app.calio.domain.repository.CategoryRepository
 import app.calio.domain.repository.EventRepository
 import app.calio.domain.repository.SettingsRepository
 import app.calio.model.AppSettings
+import app.calio.model.Calendar
 import app.calio.model.CalioColor
+import app.calio.model.Category
 import app.calio.model.Event
 import app.calio.model.EventTimeRange
 import app.calio.model.resolveEventColor
@@ -24,10 +26,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -63,7 +67,7 @@ class CalendarViewModel(
     val state: StateFlow<CalendarUiState> = combine(selection, settings.observe()) { current, config ->
         current to config
     }.flatMapLatest { (current, config) ->
-        observeDays(current, config.weekStart).map { days -> current.toState(days, config) }
+        observeDays(current, config).map { (days, legend) -> current.toState(days, config, legend) }
     }
         .stateIn(
             scope = viewModelScope,
@@ -73,28 +77,50 @@ class CalendarViewModel(
 
     private val weekStart: DayOfWeek get() = state.value.weekStart
 
-    fun onEvent(event: CalendarUiEvent) = when (event) {
-        is CalendarUiEvent.SelectPeriod -> selection.update { it.copy(period = event.period) }
-        is CalendarUiEvent.SelectDate -> selection.update { it.copy(anchor = event.date) }
-        CalendarUiEvent.GoToPrevious -> selection.update {
-            it.copy(anchor = it.period.previous(it.anchor, weekStart))
-        }
+    fun onEvent(event: CalendarUiEvent) {
+        when (event) {
+            is CalendarUiEvent.SelectPeriod -> selection.update { it.copy(period = event.period) }
+            is CalendarUiEvent.SelectDate -> selection.update { it.copy(anchor = event.date) }
 
-        CalendarUiEvent.GoToNext -> selection.update {
-            it.copy(anchor = it.period.next(it.anchor, weekStart))
-        }
+            CalendarUiEvent.GoToPrevious -> selection.update {
+                it.copy(anchor = it.period.previous(it.anchor, weekStart))
+            }
 
-        CalendarUiEvent.GoToToday -> selection.update { it.copy(anchor = clock.today(zone)) }
+            CalendarUiEvent.GoToNext -> selection.update {
+                it.copy(anchor = it.period.next(it.anchor, weekStart))
+            }
 
-        is CalendarUiEvent.OpenDay -> selection.update {
-            it.copy(anchor = event.date, period = CalendarPeriod.DAY)
+            CalendarUiEvent.GoToToday -> selection.update { it.copy(anchor = clock.today(zone)) }
+
+            is CalendarUiEvent.OpenDay -> selection.update {
+                it.copy(anchor = event.date, period = CalendarPeriod.DAY)
+            }
+
+            // Calendar visibility is a column on the calendar itself, because the range query filters
+            // on it in SQL. Hidden categories are a setting, because a category can be absent from an
+            // event and the set is small enough to apply after expansion.
+            is CalendarUiEvent.SetCalendarVisible -> {
+                viewModelScope.launch { calendars.setVisible(event.id, event.isVisible) }
+            }
+
+            is CalendarUiEvent.SetCategoryVisible -> {
+                viewModelScope.launch {
+                    val current = settings.observe().first()
+                    val hidden = current.hiddenCategoryIds.toMutableSet()
+                    if (event.isVisible) hidden.remove(event.id) else hidden.add(event.id)
+                    settings.update(current.copy(hiddenCategoryIds = hidden))
+                }
+            }
         }
     }
 
-    private fun observeDays(selection: Selection, weekStart: DayOfWeek): Flow<List<CalendarDay>> {
+    private fun observeDays(
+        selection: Selection,
+        config: AppSettings,
+    ): Flow<Pair<List<CalendarDay>, Legend>> {
         // The grid range rather than the plain period: a month view draws whole weeks, so it needs
         // the leading and trailing days of the neighbouring months as well.
-        val dates = selection.period.gridRangeOf(selection.anchor, weekStart)
+        val dates = selection.period.gridRangeOf(selection.anchor, config.weekStart)
         val window = dates.toInstantRange(zone)
 
         return combine(
@@ -106,9 +132,11 @@ class CalendarViewModel(
             val calendarsById = allCalendars.associateBy { it.id }
             val categoriesById = allCategories.associateBy { it.id }
 
-            val occurrences = visibleEvents.flatMap { event ->
-                expander.expand(event, window, overrides[event.id].orEmpty())
-            }
+            val occurrences = visibleEvents
+                .flatMap { event -> expander.expand(event, window, overrides[event.id].orEmpty()) }
+                // An event without a category is never hidden by a category switch: it belongs to
+                // none of them, so no switch speaks for it.
+                .filter { config.isCategoryVisible(it.event.categoryId) }
 
             val colourOf = { event: Event ->
                 val calendar = calendarsById[event.calendarId]
@@ -123,9 +151,12 @@ class CalendarViewModel(
                 }
             }
 
-            dates.map { date -> buildDay(date, occurrences, colourOf) }
+            dates.map { date -> buildDay(date, occurrences, colourOf) } to
+                Legend(allCalendars, allCategories)
         }
     }
+
+    private data class Legend(val calendars: List<Calendar>, val categories: List<Category>)
 
     private fun buildDay(
         date: LocalDate,
@@ -150,7 +181,11 @@ class CalendarViewModel(
         )
     }
 
-    private fun Selection.toState(days: List<CalendarDay>, config: AppSettings) = CalendarUiState(
+    private fun Selection.toState(
+        days: List<CalendarDay>,
+        config: AppSettings,
+        legend: Legend = Legend(emptyList(), emptyList()),
+    ) = CalendarUiState(
         period = period,
         anchor = anchor,
         today = clock.today(zone),
@@ -158,6 +193,9 @@ class CalendarViewModel(
         weekStart = config.weekStart,
         days = days,
         workingHours = config.workingHours,
+        calendars = legend.calendars,
+        categories = legend.categories,
+        hiddenCategoryIds = config.hiddenCategoryIds,
     )
 
     private data class Selection(val period: CalendarPeriod, val anchor: LocalDate)

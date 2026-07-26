@@ -13,6 +13,7 @@ import app.calio.testing.FakeEventRepository
 import app.calio.testing.FakeSettingsRepository
 import app.calio.testing.testAllDayEvent
 import app.calio.testing.testCalendar
+import app.calio.testing.testCategory
 import app.calio.testing.testEvent
 import app.calio.testing.testZone
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -55,7 +57,7 @@ class CalendarViewModelTest {
         val viewModel = CalendarViewModel(
             events = FakeEventRepository(events),
             calendars = FakeCalendarRepository(),
-            categories = FakeCategoryRepository(),
+            categories = FakeCategoryRepository(listOf(testCategory)),
             expander = RecurrenceExpander(),
             layout = OverlapLayoutCalculator(),
             settings = FakeSettingsRepository(),
@@ -285,6 +287,82 @@ class CalendarViewModelTest {
 
         val state = viewModel.state.first { it.anchor == LocalDate(2026, 9, 1) }
         assertEquals(42, state.days.size)
+    }
+
+    @Test
+    fun `the legend lists the calendars and categories`() = runTest {
+        val viewModel = viewModel(emptyList())
+
+        val state = viewModel.state.first { it.calendars.isNotEmpty() }
+
+        assertEquals(listOf(testCalendar.id), state.calendars.map { it.id })
+        assertEquals(listOf(testCategory.id), state.categories.map { it.id })
+        assertTrue(state.isCategoryVisible(testCategory.id))
+    }
+
+    @Test
+    fun `hiding a category takes its events out of every view`() = runTest {
+        val categorised = testEvent(
+            id = "categorised",
+            start = LocalDateTime(2026, 8, 5, 9, 0),
+            endExclusive = LocalDateTime(2026, 8, 5, 10, 0),
+        ).copy(categoryId = testCategory.id)
+        val plain = testEvent(
+            id = "plain",
+            start = LocalDateTime(2026, 8, 5, 11, 0),
+            endExclusive = LocalDateTime(2026, 8, 5, 12, 0),
+        )
+        val viewModel = viewModel(listOf(categorised, plain))
+        viewModel.state.first { it.days.sumOf { day -> day.timed.size } == 2 }
+
+        viewModel.onEvent(CalendarUiEvent.SetCategoryVisible(testCategory.id, isVisible = false))
+
+        val hidden = viewModel.state.first { !it.isCategoryVisible(testCategory.id) }
+        // The uncategorised event stays: no switch speaks for it.
+        assertEquals(
+            listOf("plain"),
+            hidden.days.flatMap { it.timed }.map { it.occurrence.eventId.value },
+        )
+    }
+
+    @Test
+    fun `showing a category brings its events back`() = runTest {
+        val categorised = testEvent(
+            id = "categorised",
+            start = LocalDateTime(2026, 8, 5, 9, 0),
+            endExclusive = LocalDateTime(2026, 8, 5, 10, 0),
+        ).copy(categoryId = testCategory.id)
+        val viewModel = viewModel(listOf(categorised))
+        viewModel.state.first { it.days.any { day -> day.timed.isNotEmpty() } }
+
+        viewModel.onEvent(CalendarUiEvent.SetCategoryVisible(testCategory.id, isVisible = false))
+        viewModel.state.first { it.days.all { day -> day.timed.isEmpty() } }
+        viewModel.onEvent(CalendarUiEvent.SetCategoryVisible(testCategory.id, isVisible = true))
+
+        val shown = viewModel.state.first { it.days.any { day -> day.timed.isNotEmpty() } }
+        assertTrue(shown.isCategoryVisible(testCategory.id))
+    }
+
+    @Test
+    fun `switching a calendar off is remembered on the calendar itself`() = runTest {
+        val calendars = FakeCalendarRepository(listOf(testCalendar))
+        val viewModel = CalendarViewModel(
+            events = FakeEventRepository(),
+            calendars = calendars,
+            categories = FakeCategoryRepository(listOf(testCategory)),
+            expander = RecurrenceExpander(),
+            layout = OverlapLayoutCalculator(),
+            settings = FakeSettingsRepository(),
+            zone = testZone,
+            clock = clock,
+        )
+        backgroundScope.launch { viewModel.state.collect { } }
+        viewModel.state.first { it.calendars.isNotEmpty() }
+
+        viewModel.onEvent(CalendarUiEvent.SetCalendarVisible(testCalendar.id, isVisible = false))
+
+        val state = viewModel.state.first { cal -> cal.calendars.none { it.isVisible } }
+        assertFalse(state.calendars.single().isVisible)
     }
 
     @Test
