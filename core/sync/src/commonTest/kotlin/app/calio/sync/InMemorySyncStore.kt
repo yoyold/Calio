@@ -30,6 +30,8 @@ internal class InMemorySyncStore(private val deviceId: DeviceId) : SyncableStore
 
     val conflicts = mutableListOf<RecordedConflict>()
 
+    private val pendingCount = kotlinx.coroutines.flow.MutableStateFlow(0)
+
     private var sequence = 0L
     private var clockMillis = 0L
     private var counter = 0
@@ -65,6 +67,8 @@ internal class InMemorySyncStore(private val deviceId: DeviceId) : SyncableStore
         }
         return Revision.of(clockMillis, counter, deviceId)
     }
+
+    override fun observePendingCount(): kotlinx.coroutines.flow.Flow<Int> = pendingCount
 
     override suspend fun pendingChanges(limit: Int): List<PendingChange> =
         outbox.filterNot { it.sequence in pushedUpTo }.take(limit)

@@ -55,6 +55,7 @@ fun CalioApp(
     val settings by container.settings.observe().collectAsState(AppSettings())
 
     LaunchedEffect(container) {
+        container.sync.start(this)
         DefaultDataSeeder(container.calendars, container.categories, container.deviceId).seedIfEmpty()
     }
 
@@ -169,6 +170,8 @@ private fun rememberSettingsViewModel(container: CalioContainer): SettingsViewMo
         settings = container.settings,
         calendars = container.calendars,
         categories = container.categories,
+        syncStatus = container.sync.status,
+        onSyncNow = container.sync::requestSync,
     )
 }
 

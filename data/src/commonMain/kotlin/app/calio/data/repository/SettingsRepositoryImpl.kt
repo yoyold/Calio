@@ -72,6 +72,7 @@ private data class SettingsDto(
     val workingHours: Map<Int, DayWindowDto>,
     val bufferPolicy: BufferPolicyDto,
     val hiddenCategoryIds: List<String> = emptyList(),
+    val syncFolderPath: String? = null,
 )
 
 @Serializable
@@ -112,6 +113,7 @@ private fun AppSettings.toDto() = SettingsDto(
         appliesToAllDayEvents = bufferPolicy.appliesToAllDayEvents,
     ),
     hiddenCategoryIds = hiddenCategoryIds.map { it.value },
+    syncFolderPath = syncFolderPath,
 )
 
 private fun SettingsDto.toDomain() = AppSettings(
@@ -130,6 +132,7 @@ private fun SettingsDto.toDomain() = AppSettings(
         appliesToAllDayEvents = bufferPolicy.appliesToAllDayEvents,
     ),
     hiddenCategoryIds = hiddenCategoryIds.mapTo(mutableSetOf(), ::CategoryId),
+    syncFolderPath = syncFolderPath?.takeIf { it.isNotBlank() },
 )
 
 // Times are stored as minutes from midnight: one integer, no parsing, and no way to write a value

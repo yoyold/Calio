@@ -26,6 +26,11 @@ data class AppSettings(
      * every category: a new category is visible without anyone having to say so.
      */
     val hiddenCategoryIds: Set<CategoryId> = emptySet(),
+    /**
+     * The folder two installations exchange changes through, or null when this one syncs with
+     * nothing. A path rather than an account: a synced cloud folder needs no server of its own.
+     */
+    val syncFolderPath: String? = null,
 ) {
     fun isCategoryVisible(id: CategoryId?): Boolean = id == null || id !in hiddenCategoryIds
 }

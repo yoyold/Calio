@@ -14,7 +14,11 @@ import app.calio.sync.PendingChange
 import app.calio.sync.SyncOperation
 import app.calio.sync.SyncableStore
 import app.calio.sync.SyncedEntityType
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToOne
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
@@ -34,6 +38,9 @@ class DatabaseSyncableStore(
     private val revisions: RevisionSource,
     private val dispatcher: CoroutineDispatcher,
 ) : SyncableStore {
+
+    override fun observePendingCount(): Flow<Int> =
+        database.syncQueries.countPendingChanges().asFlow().mapToOne(dispatcher).map { it.toInt() }
 
     override suspend fun pendingChanges(limit: Int): List<PendingChange> = withContext(dispatcher) {
         database.syncQueries.selectPendingChanges(limit.toLong()).executeAsList().map { row ->

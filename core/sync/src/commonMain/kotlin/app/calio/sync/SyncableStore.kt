@@ -1,6 +1,7 @@
 package app.calio.sync
 
 import app.calio.model.Revision
+import kotlinx.coroutines.flow.Flow
 import kotlin.time.Instant
 
 /** One entry of the outbox, as the engine sees it. */
@@ -31,6 +32,9 @@ data class IncomingChange(
 interface SyncableStore {
 
     suspend fun pendingChanges(limit: Int): List<PendingChange>
+
+    /** How many local changes are still waiting, so a scheduler can react instead of polling. */
+    fun observePendingCount(): Flow<Int>
 
     /** The serialised record, or null when it is gone — which is what a deletion looks like. */
     suspend fun payloadFor(entityType: SyncedEntityType, entityId: String): String?

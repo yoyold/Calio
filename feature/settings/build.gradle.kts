@@ -6,6 +6,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.domain)
+            api(projects.core.sync)
             implementation(projects.core.ui)
             implementation(projects.core.model)
             implementation(projects.core.datetime)

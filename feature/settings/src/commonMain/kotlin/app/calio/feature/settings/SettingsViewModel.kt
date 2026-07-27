@@ -17,6 +17,7 @@ import app.calio.model.DayWindow
 import app.calio.model.DeviceId
 import app.calio.model.ThemeMode
 import app.calio.model.WorkingHours
+import app.calio.sync.SyncStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,8 @@ sealed interface SettingsUiEvent {
     data class SetWeekStart(val day: DayOfWeek) : SettingsUiEvent
     data class SetWorkingDay(val day: DayOfWeek, val window: DayWindow?) : SettingsUiEvent
     data class SetBufferPolicy(val policy: BufferPolicy) : SettingsUiEvent
+    data class SetSyncFolder(val path: String?) : SettingsUiEvent
+    data object SyncNow : SettingsUiEvent
 
     data class EditCalendar(val id: CalendarId?) : SettingsUiEvent
     data class EditCategory(val id: CategoryId?) : SettingsUiEvent
@@ -75,6 +78,8 @@ class SettingsViewModel(
     private val calendars: CalendarRepository,
     private val categories: CategoryRepository,
     private val clock: Clock = Clock.System,
+    val syncStatus: StateFlow<SyncStatus> = MutableStateFlow(SyncStatus()),
+    private val onSyncNow: () -> Unit = {},
 ) : ViewModel() {
 
     private val editingCalendar = MutableStateFlow<ColorDraft?>(null)
@@ -113,6 +118,14 @@ class SettingsViewModel(
             }
 
             is SettingsUiEvent.SetBufferPolicy -> updateSettings { copy(bufferPolicy = event.policy) }
+
+            // A blank path means no synchronisation at all, which is a valid answer rather than an
+            // error: an installation that syncs with nothing is the normal starting point.
+            is SettingsUiEvent.SetSyncFolder -> updateSettings {
+                copy(syncFolderPath = event.path?.takeIf { it.isNotBlank() })
+            }
+
+            SettingsUiEvent.SyncNow -> onSyncNow()
 
             is SettingsUiEvent.EditCalendar -> viewModelScope.launch {
                 editingCalendar.value = event.id?.let { id ->

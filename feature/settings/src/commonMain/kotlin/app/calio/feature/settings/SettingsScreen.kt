@@ -47,6 +47,7 @@ import app.calio.designsystem.icon.CalioIcons
 import app.calio.model.CalioColor
 import app.calio.model.DayWindow
 import app.calio.model.ThemeMode
+import app.calio.sync.SyncStatus
 import app.calio.ui.ScreenHeader
 import app.calio.ui.clockLabel
 import kotlinx.datetime.DayOfWeek
@@ -55,13 +56,20 @@ import kotlinx.datetime.LocalTime
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
 
-    SettingsScreen(state = state, onEvent = viewModel::onEvent, modifier = modifier)
+    SettingsScreen(
+        state = state,
+        syncStatus = syncStatus,
+        onEvent = viewModel::onEvent,
+        modifier = modifier,
+    )
 }
 
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
+    syncStatus: SyncStatus,
     onEvent: (SettingsUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -76,6 +84,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(CalioTheme.spacing.large),
         ) {
             AppearanceSection(state, onEvent)
+            SyncSection(state, syncStatus, onEvent)
             WorkingHoursSection(state, onEvent)
             BufferSection(state, onEvent)
             CalendarsSection(state, onEvent)
@@ -290,6 +299,84 @@ private fun CategoriesSection(state: SettingsUiState, onEvent: (SettingsUiEvent)
         AddButton("Add category") { onEvent(SettingsUiEvent.EditCategory(null)) }
     }
 }
+
+/**
+ * Synchronisation is a path, not an account.
+ *
+ * Pointing two installations at the same synced folder is enough — no server, no sign-in, and the
+ * folder is one the user already backs up. Leaving it empty is a normal state, not an unfinished
+ * one, so nothing here nags about it.
+ */
+@Composable
+private fun SyncSection(
+    state: SettingsUiState,
+    status: SyncStatus,
+    onEvent: (SettingsUiEvent) -> Unit,
+) {
+    var path by remember(state.settings.syncFolderPath) {
+        mutableStateOf(state.settings.syncFolderPath.orEmpty())
+    }
+
+    SettingsSection("Synchronisation") {
+        OutlinedTextField(
+            value = path,
+            onValueChange = { path = it },
+            label = { Text("Shared folder") },
+            placeholder = { Text("Leave empty to sync with nothing") },
+            singleLine = true,
+            trailingIcon = {
+                if (path != state.settings.syncFolderPath.orEmpty()) {
+                    TextButton(onClick = { onEvent(SettingsUiEvent.SetSyncFolder(path)) }) {
+                        Text("Apply")
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Text(
+            text = "Point both installations at the same folder, for example one that a cloud " +
+                "service already keeps in step.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(CalioTheme.spacing.small),
+        ) {
+            Text(
+                text = status.summary(isConfigured = state.settings.syncFolderPath != null),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (status.lastError != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = { onEvent(SettingsUiEvent.SyncNow) },
+                enabled = state.settings.syncFolderPath != null && !status.isRunning,
+            ) { Text("Sync now") }
+        }
+    }
+}
+
+/** Says what is happening in one line, because that is all a settings row has room for. */
+private fun SyncStatus.summary(isConfigured: Boolean): String = when {
+    !isConfigured && pendingChanges > 0 ->
+        "Not synchronising. $pendingChanges change${plural(pendingChanges)} waiting."
+
+    !isConfigured -> "Not synchronising."
+    isRunning -> "Synchronising…"
+    lastError != null -> "Last attempt failed: $lastError"
+    pendingChanges > 0 -> "$pendingChanges change${plural(pendingChanges)} waiting to be sent."
+    lastSuccessAt != null -> "Up to date."
+    else -> "Waiting for the first round."
+}
+
+private fun plural(count: Int): String = if (count == 1) "" else "s"
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {

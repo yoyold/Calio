@@ -19,9 +19,9 @@ class SyncEngine(
     private val cipher: PayloadCipher,
     private val clock: Clock = Clock.System,
     private val pageSize: Int = RemoteSyncSource.DEFAULT_PAGE_SIZE,
-) {
+) : SyncRunner {
 
-    suspend fun sync(): SyncOutcome {
+    override suspend fun sync(): SyncOutcome {
         // Which records had an edit that had not left this device yet, captured before pushing.
         //
         // This is what makes a conflict a conflict. Asking after the push would always answer "no",

@@ -42,8 +42,8 @@ import kotlin.uuid.Uuid
  */
 class CalioContainer(
     driverFactory: DatabaseDriverFactory,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
-    private val clock: Clock = Clock.System,
+    internal val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    internal val clock: Clock = Clock.System,
 ) {
 
     val database: CalioDatabase = createCalioDatabase(driverFactory)
@@ -65,6 +65,14 @@ class CalioContainer(
     val tasks: TaskRepository = TaskRepositoryImpl(database, revisions, dispatcher, clock)
     val search: SearchRepository = SearchRepositoryImpl(database, dispatcher)
     val settings: SettingsRepository = SettingsRepositoryImpl(database, dispatcher)
+
+    /**
+     * Synchronisation, idle until a folder is configured in the settings.
+     *
+     * It is created here so its state survives navigation, but it only starts working once the
+     * application asks it to, which keeps a test or a preview from touching the file system.
+     */
+    val sync: CalioSync = CalioSync(syncableStore(), settings, clock)
 
     val recurrenceExpander: RecurrenceExpander = RecurrenceExpander()
     val overlapLayout: OverlapLayoutCalculator = OverlapLayoutCalculator()
