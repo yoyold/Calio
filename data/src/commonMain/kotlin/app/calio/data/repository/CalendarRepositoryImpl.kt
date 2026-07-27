@@ -39,43 +39,37 @@ class CalendarRepositoryImpl(
     override suspend fun upsert(calendar: Calendar): Unit = withContext(dispatcher) {
         val revision = revisions.next()
         val now = clock.now()
+        val stamped = calendar.copy(
+            audit = calendar.audit.copy(
+                updatedAt = now,
+                revision = revision,
+                originDevice = revision.deviceId,
+            ),
+        )
 
         database.transaction {
-            val exists = calendars.selectById(calendar.id.value).executeAsOneOrNull() != null
-            if (exists) {
-                calendars.update(
-                    name = calendar.name,
-                    color = calendar.color.argb,
-                    isVisible = if (calendar.isVisible) 1 else 0,
-                    isDefault = if (calendar.isDefault) 1 else 0,
-                    sortOrder = calendar.sortOrder.toLong(),
-                    updatedAt = now.toEpochMilliseconds(),
-                    revision = revision.value,
-                    originDevice = revision.deviceId.value,
-                    id = calendar.id.value,
-                )
-            } else {
-                calendars.insert(
-                    id = calendar.id.value,
-                    name = calendar.name,
-                    color = calendar.color.argb,
-                    is_visible = if (calendar.isVisible) 1 else 0,
-                    is_default = if (calendar.isDefault) 1 else 0,
-                    sort_order = calendar.sortOrder.toLong(),
-                    created_at = calendar.audit.createdAt.toEpochMilliseconds(),
-                    updated_at = now.toEpochMilliseconds(),
-                    revision = revision.value,
-                    deleted_at = calendar.audit.deletedAt?.toEpochMilliseconds(),
-                    origin_device = revision.deviceId.value,
+            database.writeCalendar(stamped)
+
+            stamped.external?.let { external ->
+                calendars.setExternalOrigin(
+                    accountId = external.accountId.value,
+                    externalId = external.externalId,
+                    isReadOnly = if (external.isReadOnly) 1 else 0,
+                    id = stamped.id.value,
                 )
             }
-            database.recordChange(
-                entity = SyncedEntity.CALENDAR,
-                entityId = calendar.id.value,
-                operation = SyncOperation.UPSERT,
-                revision = revision,
-                at = now,
-            )
+
+            // A mirrored calendar answers to its provider and is mirrored by each device for
+            // itself, so it never travels through Calio's own synchronisation.
+            if (stamped.takesPartInDeviceSync) {
+                database.recordChange(
+                    entity = SyncedEntity.CALENDAR,
+                    entityId = stamped.id.value,
+                    operation = SyncOperation.UPSERT,
+                    revision = revision,
+                    at = now,
+                )
+            }
         }
     }
 

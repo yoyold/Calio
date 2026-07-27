@@ -98,9 +98,9 @@ class EventRepositoryImpl(
 
         database.transaction {
             database.writeEvent(stamped)
-            database.recordChange(
-                entity = SyncedEntity.EVENT,
-                entityId = stamped.id.value,
+            database.recordEventChange(
+                calendarId = stamped.calendarId.value,
+                eventId = stamped.id.value,
                 operation = SyncOperation.UPSERT,
                 revision = revision,
                 at = now,
@@ -113,18 +113,25 @@ class EventRepositoryImpl(
         val now = clock.now()
 
         database.transaction {
+            // Which calendar it lived in has to be read before the row becomes a tombstone, because
+            // that is what decides where the deletion has to be reported.
+            val calendarId = events.selectById(id.value).executeAsOneOrNull()?.calendar_id
+
             events.softDelete(
                 deletedAt = now.toEpochMilliseconds(),
                 revision = revision.value,
                 id = id.value,
             )
-            database.recordChange(
-                entity = SyncedEntity.EVENT,
-                entityId = id.value,
-                operation = SyncOperation.DELETE,
-                revision = revision,
-                at = now,
-            )
+
+            if (calendarId != null) {
+                database.recordEventChange(
+                    calendarId = calendarId,
+                    eventId = id.value,
+                    operation = SyncOperation.DELETE,
+                    revision = revision,
+                    at = now,
+                )
+            }
         }
     }
 

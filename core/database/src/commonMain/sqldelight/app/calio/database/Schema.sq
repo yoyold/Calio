@@ -22,7 +22,13 @@ CREATE TABLE calendar (
     updated_at     INTEGER NOT NULL,
     revision       TEXT    NOT NULL,
     deleted_at     INTEGER,
-    origin_device  TEXT    NOT NULL
+    origin_device  TEXT    NOT NULL,
+
+    -- A calendar without an account is a local one, which is what every calendar was before
+    -- accounts existed. A mirrored one answers to its provider and may be read-only.
+    external_account_id TEXT,
+    external_id         TEXT,
+    is_read_only        INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE category (
@@ -74,6 +80,11 @@ CREATE TABLE event (
     revision             TEXT    NOT NULL,
     deleted_at           INTEGER,
     origin_device        TEXT    NOT NULL,
+
+    -- What the provider calls this event, and the version it last handed us. Both are null for an
+    -- event that only exists in Calio.
+    external_id          TEXT,
+    external_etag        TEXT,
 
     CHECK (end_utc >= start_utc)
 );
@@ -266,3 +277,52 @@ END;
 CREATE TRIGGER task_search_delete AFTER DELETE ON task BEGIN
     DELETE FROM search_index WHERE entity_id = old.id AND entity_type = 'TASK';
 END;
+
+CREATE INDEX event_external_idx ON event(external_id);
+
+CREATE TABLE external_account (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    provider      TEXT    NOT NULL,
+    display_name  TEXT    NOT NULL,
+    status        TEXT    NOT NULL DEFAULT 'CONNECTED',
+    connected_at  INTEGER NOT NULL,
+
+    CHECK (provider IN ('GOOGLE', 'MICROSOFT')),
+    CHECK (status IN ('CONNECTED', 'NEEDS_REAUTHENTICATION'))
+);
+
+-- The catalogue of what an account offers, whether or not the user mirrors it.
+--
+-- Keeping the unchosen ones costs a row each and saves asking the provider again every time the
+-- selection screen is opened. The sync token belongs here rather than on the calendar because it is
+-- the provider's bookmark, meaningless to anything else.
+CREATE TABLE external_calendar (
+    account_id    TEXT    NOT NULL REFERENCES external_account(id) ON DELETE CASCADE,
+    external_id   TEXT    NOT NULL,
+    name          TEXT    NOT NULL,
+    color         INTEGER,
+    is_read_only  INTEGER NOT NULL DEFAULT 0,
+    is_mirrored   INTEGER NOT NULL DEFAULT 0,
+    calendar_id   TEXT             REFERENCES calendar(id),
+    sync_token    TEXT,
+    last_sync_at  INTEGER,
+
+    PRIMARY KEY (account_id, external_id)
+);
+
+-- A second outbox, for changes that belong to a provider rather than to another Calio device.
+--
+-- The two cannot share one table: they are drained by different engines, acknowledged against
+-- different remotes, and a row in one says nothing about the other.
+CREATE TABLE external_change_log (
+    seq          INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    calendar_id  TEXT    NOT NULL,
+    event_id     TEXT    NOT NULL,
+    operation    TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL,
+    synced_at    INTEGER,
+
+    CHECK (operation IN ('UPSERT', 'DELETE'))
+);
+
+CREATE INDEX external_change_pending_idx ON external_change_log(seq) WHERE synced_at IS NULL;

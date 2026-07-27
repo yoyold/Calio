@@ -54,3 +54,10 @@ WHERE id = :id;
 -- resurrects a row, while an incoming change may carry either state.
 setDeletedAt:
 UPDATE calendar SET deleted_at = :deletedAt WHERE id = :id;
+
+-- The origin is set separately from the insert: a calendar becomes mirrored after it exists, when
+-- the user picks it out of an account's catalogue.
+setExternalOrigin:
+UPDATE calendar
+SET external_account_id = :accountId, external_id = :externalId, is_read_only = :isReadOnly
+WHERE id = :id;

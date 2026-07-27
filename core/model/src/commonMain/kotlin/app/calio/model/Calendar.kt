@@ -11,10 +11,24 @@ data class Calendar(
     val isVisible: Boolean = true,
     val isDefault: Boolean = false,
     val sortOrder: Int = 0,
+    val origin: CalendarOrigin = CalendarOrigin.Local,
 ) {
     init {
         require(name.isNotBlank()) { "calendar name must not be blank" }
     }
+
+    val external: CalendarOrigin.External? get() = origin as? CalendarOrigin.External
+
+    /** Whether Calio may change what is in this calendar at all. */
+    val isWritable: Boolean get() = external?.isReadOnly != true
+
+    /**
+     * A mirrored calendar is not carried between Calio's own devices.
+     *
+     * Each device mirrors it from the provider directly. Doing both would make the same change
+     * arrive twice by two routes, and the two routes disagree about what a revision means.
+     */
+    val takesPartInDeviceSync: Boolean get() = origin is CalendarOrigin.Local
 }
 
 /**

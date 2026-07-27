@@ -1,0 +1,70 @@
+-- Insert-then-update rather than a replace: replacing the row would delete it first, and the
+-- calendar catalogue hangs off it by cascade.
+insertAccount:
+INSERT OR IGNORE INTO external_account(id, provider, display_name, status, connected_at)
+VALUES (?, ?, ?, ?, ?);
+
+updateAccount:
+UPDATE external_account
+SET display_name = :displayName, status = :status
+WHERE id = :id;
+
+selectAccounts:
+SELECT * FROM external_account ORDER BY display_name COLLATE NOCASE;
+
+selectAccountById:
+SELECT * FROM external_account WHERE id = ?;
+
+setAccountStatus:
+UPDATE external_account SET status = :status WHERE id = :id;
+
+deleteAccount:
+DELETE FROM external_account WHERE id = ?;
+
+-- Upsert as two statements, because ON CONFLICT needs a newer SQLite than the oldest supported
+-- Android ships. Updating after inserting also keeps the mirroring choice: the provider is telling
+-- us the name and the colour, not what the user decided about this calendar.
+insertExternalCalendar:
+INSERT OR IGNORE INTO external_calendar(account_id, external_id, name, color, is_read_only)
+VALUES (?, ?, ?, ?, ?);
+
+updateExternalCalendar:
+UPDATE external_calendar
+SET name = :name, color = :color, is_read_only = :isReadOnly
+WHERE account_id = :accountId AND external_id = :externalId;
+
+selectExternalCalendars:
+SELECT * FROM external_calendar WHERE account_id = ? ORDER BY name COLLATE NOCASE;
+
+selectMirroredCalendars:
+SELECT * FROM external_calendar WHERE is_mirrored = 1;
+
+setMirrored:
+UPDATE external_calendar
+SET is_mirrored = :isMirrored, calendar_id = :calendarId
+WHERE account_id = :accountId AND external_id = :externalId;
+
+setSyncToken:
+UPDATE external_calendar
+SET sync_token = :syncToken, last_sync_at = :lastSyncAt
+WHERE account_id = :accountId AND external_id = :externalId;
+
+-- The provider's outbox, drained by the provider's engine and by nothing else.
+appendExternalChange:
+INSERT INTO external_change_log(calendar_id, event_id, operation, created_at, synced_at)
+VALUES (?, ?, ?, ?, NULL);
+
+selectPendingExternalChanges:
+SELECT * FROM external_change_log WHERE synced_at IS NULL ORDER BY seq LIMIT :limit;
+
+countPendingExternalChanges:
+SELECT count(*) FROM external_change_log WHERE synced_at IS NULL;
+
+markExternalChangesSynced:
+UPDATE external_change_log SET synced_at = :syncedAt WHERE seq <= :upToSeq AND synced_at IS NULL;
+
+selectExternalIdentity:
+SELECT external_id, external_etag FROM event WHERE id = ?;
+
+setExternalIdentity:
+UPDATE event SET external_id = :externalId, external_etag = :externalEtag WHERE id = :id;

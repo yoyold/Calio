@@ -8,6 +8,9 @@ import app.calio.model.AttendeeRole
 import app.calio.model.AuditFields
 import app.calio.model.BusyStatus
 import app.calio.model.CalendarId
+import app.calio.model.CalendarOrigin
+import app.calio.model.CalendarProvider
+import app.calio.model.ExternalAccountId
 import app.calio.model.CalioColor
 import app.calio.model.CategoryId
 import app.calio.model.DeviceId
@@ -82,7 +85,26 @@ internal fun CalendarRow.toDomain(): CalendarEntity = CalendarEntity(
     isVisible = is_visible != 0L,
     isDefault = is_default != 0L,
     sortOrder = sort_order.toInt(),
+    origin = externalOrigin(),
 )
+
+/**
+ * A calendar with no account is a local one.
+ *
+ * The three columns are read together because they only mean anything together: an account without
+ * an external id would describe a calendar the provider cannot be asked about.
+ */
+private fun CalendarRow.externalOrigin(): CalendarOrigin {
+    val accountId = external_account_id ?: return CalendarOrigin.Local
+    val externalId = external_id ?: return CalendarOrigin.Local
+
+    return CalendarOrigin.External(
+        accountId = ExternalAccountId(accountId),
+        provider = CalendarProvider.GOOGLE,
+        externalId = externalId,
+        isReadOnly = is_read_only != 0L,
+    )
+}
 
 internal fun CategoryRow.toDomain(): CategoryEntity = CategoryEntity(
     id = CategoryId(id),
