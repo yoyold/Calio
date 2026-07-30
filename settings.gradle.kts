@@ -26,8 +26,11 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 rootProject.name = "calio"
 
+include(":core:auth")
+include(":core:crypto")
 include(":core:database")
 include(":core:datetime")
+include(":core:net")
 include(":core:designsystem")
 include(":core:model")
 include(":core:sync")

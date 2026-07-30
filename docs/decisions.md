@@ -142,3 +142,34 @@ in exports.
 
 **Consequences.** They inherit storage, synchronisation, export and rendering for free. Planning use
 cases filter by kind, and conflict detection can exclude buffers from warnings.
+
+---
+
+## 009 — Provider sign-in without a client secret, tokens outside the database
+
+**Status:** accepted · 2026-07-30
+
+**Context.** Google and Microsoft calendars are reached with OAuth 2.0. Calio is installed on the
+user's machine, so any client secret compiled into it can be read out of the binary by anyone who
+has a copy, and the refresh token it obtains is a standing key to a calendar that stays valid until
+somebody revokes it.
+
+**Decision.** The authorization code flow with PKCE and no client secret. The sign-in happens in the
+system browser — on the desktop the redirect is caught by a short-lived listener bound to the
+loopback interface on a port the operating system assigns, on Android by a custom scheme. Tokens
+never reach the database: they are kept in a `SecretStore`, backed by the Windows data protection
+API on the desktop and by a non-extractable key in the Android keystore on the phone.
+
+A refusal from the token endpoint is classified rather than reported: `invalid_grant` and its
+siblings mean the grant is gone and the account has to be connected again, while a timeout or a
+server error changes nothing about the account and is retried later.
+
+**Alternatives.** A client secret shipped with the application (rejected: not a secret, and both
+providers document this); an embedded web view for the sign-in (rejected: an application that renders
+the password field is indistinguishable from one that reads it, and providers block it).
+
+**Consequences.** The database file can be copied, backed up and exported without carrying access to
+anybody's calendar; what it holds is the fact that an account is connected, not the means to use it.
+The client ids have to be registered per provider and per platform, and they are configuration rather
+than source. Losing the secure storage — a new Windows account, a restored phone — costs a new
+sign-in and nothing else.
